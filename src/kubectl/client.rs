@@ -233,6 +233,38 @@ impl KubectlClient {
         commands::describe_pod(namespace, pod_name)
     }
 
+    pub async fn describe_service(&self, namespace: &str, service_name: &str) -> Result<String> {
+        commands::describe_service(namespace, service_name)
+    }
+
+    pub async fn describe_deployment(&self, namespace: &str, deployment_name: &str) -> Result<String> {
+        commands::describe_deployment(namespace, deployment_name)
+    }
+
+    pub async fn describe_daemonset(&self, namespace: &str, daemonset_name: &str) -> Result<String> {
+        commands::describe_daemonset(namespace, daemonset_name)
+    }
+
+    pub async fn describe_node(&self, node_name: &str) -> Result<String> {
+        commands::describe_node(node_name)
+    }
+
+    pub async fn describe_configmap(&self, namespace: &str, configmap_name: &str) -> Result<String> {
+        commands::describe_configmap(namespace, configmap_name)
+    }
+
+    pub async fn describe_secret(&self, namespace: &str, secret_name: &str) -> Result<String> {
+        commands::describe_secret(namespace, secret_name)
+    }
+
+    pub async fn describe_pvc(&self, namespace: &str, pvc_name: &str) -> Result<String> {
+        commands::describe_pvc(namespace, pvc_name)
+    }
+
+    pub async fn describe_pv(&self, pv_name: &str) -> Result<String> {
+        commands::describe_pv(pv_name)
+    }
+
     #[allow(dead_code)]
     pub async fn delete_pod(&self, namespace: &str, pod_name: &str) -> Result<String> {
         commands::delete_pod(namespace, pod_name)

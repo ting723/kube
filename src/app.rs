@@ -78,6 +78,10 @@ pub struct AppState {
     pub current_command: String,
     // 日志自动滚动
     pub logs_auto_scroll: bool,
+    // 日志自动刷新
+    pub logs_auto_refresh: bool,
+    pub logs_refresh_interval: Duration,
+    pub last_logs_refresh: Instant,
     // 执行操作标志
     pub pending_exec: Option<String>,
 }
@@ -123,6 +127,9 @@ impl Default for AppState {
             confirm_action: None,
             current_command: String::new(),
             logs_auto_scroll: true,
+            logs_auto_refresh: true,
+            logs_refresh_interval: Duration::from_secs(2),
+            last_logs_refresh: Instant::now(),
             pending_exec: None,
         }
     }
@@ -135,6 +142,15 @@ impl AppState {
 
     pub fn should_refresh(&self) -> bool {
         self.auto_refresh && self.last_update.elapsed() >= self.refresh_interval
+    }
+
+    pub fn should_refresh_logs(&self) -> bool {
+        self.logs_auto_refresh && self.mode == AppMode::Logs 
+            && self.last_logs_refresh.elapsed() >= self.logs_refresh_interval
+    }
+
+    pub fn refresh_logs(&mut self) {
+        self.last_logs_refresh = Instant::now();
     }
 
     pub fn refresh_data(&mut self) {
@@ -193,6 +209,12 @@ impl AppState {
             KeyCode::Char('A') => {
                 if self.mode == AppMode::Logs {
                     self.logs_auto_scroll = !self.logs_auto_scroll;
+                }
+            }
+            // 日志自动刷新切换（仅在日志模式下）
+            KeyCode::Char('R') => {
+                if self.mode == AppMode::Logs {
+                    self.logs_auto_refresh = !self.logs_auto_refresh;
                 }
             }
             // Tab 切换面板
@@ -321,11 +343,25 @@ impl AppState {
                     self.current_namespace = namespace.clone();
                     self.mode = AppMode::PodList;
                     self.selected_pod_index = 0;
-                    // 清理旧数据
+                    // 清理所有缓存数据，强制刷新
                     self.pods.clear();
                     self.services.clear();
+                    self.deployments.clear();
+                    self.daemonsets.clear();
+                    self.pvcs.clear();
                     self.configmaps.clear();
                     self.secrets.clear();
+                    self.logs.clear();
+                    self.describe_content.clear();
+                    // 重置选中索引
+                    self.selected_service_index = 0;
+                    self.selected_deployment_index = 0;
+                    self.selected_daemonset_index = 0;
+                    self.selected_configmap_index = 0;
+                    self.selected_secret_index = 0;
+                    self.selected_pvc_index = 0;
+                    self.selected_pv_index = 0;
+                    self.selected_node_index = 0;
                 }
             }
             _ => {}
@@ -401,6 +437,38 @@ impl AppState {
 
     pub fn get_selected_pod(&self) -> Option<&crate::kubectl::types::Pod> {
         self.pods.get(self.selected_pod_index)
+    }
+
+    pub fn get_selected_service(&self) -> Option<&crate::kubectl::types::Service> {
+        self.services.get(self.selected_service_index)
+    }
+
+    pub fn get_selected_deployment(&self) -> Option<&crate::kubectl::types::Deployment> {
+        self.deployments.get(self.selected_deployment_index)
+    }
+
+    pub fn get_selected_daemonset(&self) -> Option<&crate::kubectl::types::DaemonSet> {
+        self.daemonsets.get(self.selected_daemonset_index)
+    }
+
+    pub fn get_selected_node(&self) -> Option<&crate::kubectl::types::Node> {
+        self.nodes.get(self.selected_node_index)
+    }
+
+    pub fn get_selected_configmap(&self) -> Option<&crate::kubectl::types::ConfigMap> {
+        self.configmaps.get(self.selected_configmap_index)
+    }
+
+    pub fn get_selected_secret(&self) -> Option<&crate::kubectl::types::Secret> {
+        self.secrets.get(self.selected_secret_index)
+    }
+
+    pub fn get_selected_pvc(&self) -> Option<&crate::kubectl::types::PVC> {
+        self.pvcs.get(self.selected_pvc_index)
+    }
+
+    pub fn get_selected_pv(&self) -> Option<&crate::kubectl::types::PV> {
+        self.pvs.get(self.selected_pv_index)
     }
 
     pub fn set_current_command(&mut self, command: &str) {
@@ -485,6 +553,8 @@ impl AppState {
             | AppMode::ConfigMapList | AppMode::SecretList => {
                 self.previous_mode = self.mode.clone();
                 self.reset_scroll();
+                // 清理之前的describe内容
+                self.describe_content.clear();
                 self.mode = AppMode::Describe;
             }
             _ => {}
@@ -605,15 +675,36 @@ impl AppState {
                 self.mode = self.previous_mode.clone();
             }
             KeyCode::Enter => {
-                self.search_mode = false;
-                self.perform_search();
-                self.mode = self.previous_mode.clone();
+                // 直接跳转到选中的搜索结果，不退出搜索模式
+                if !self.search_results.is_empty() {
+                    self.jump_to_search_result();
+                }
             }
             KeyCode::Backspace => {
                 self.search_query.pop();
+                // 实时搜索
+                self.perform_search();
+            }
+            KeyCode::Down => {
+                // 在搜索结果中向下导航
+                self.search_next();
+            }
+            KeyCode::Up => {
+                // 在搜索结果中向上导航
+                self.search_previous();
+            }
+            KeyCode::Char('j') => {
+                // 在搜索结果中向下导航
+                self.search_next();
+            }
+            KeyCode::Char('k') => {
+                // 在搜索结果中向上导航
+                self.search_previous();
             }
             KeyCode::Char(c) => {
                 self.search_query.push(c);
+                // 实时搜索
+                self.perform_search();
             }
             _ => {}
         }

@@ -41,7 +41,21 @@ fn render_header(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::PVCList => 8,
         AppMode::PVList => 9,
         AppMode::Help => 10,
-        AppMode::Logs | AppMode::Describe => 1, // Stay on Pods tab when viewing logs or description
+        AppMode::Logs | AppMode::Describe => {
+            // 根据之前的模式显示正确的Tab高亮
+            match app.previous_mode {
+                AppMode::PodList => 1,
+                AppMode::ServiceList => 2,
+                AppMode::NodeList => 3,
+                AppMode::DeploymentList => 4,
+                AppMode::DaemonSetList => 5,
+                AppMode::ConfigMapList => 6,
+                AppMode::SecretList => 7,
+                AppMode::PVCList => 8,
+                AppMode::PVList => 9,
+                _ => 1,
+            }
+        }
         AppMode::Search | AppMode::Confirm => match app.get_previous_mode() {
             AppMode::PodList => 1,
             AppMode::ServiceList => 2,
@@ -97,7 +111,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::PVList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
         AppMode::ConfigMapList => "j/k Navigate • Space Describe • D Delete • / Search • Tab Switch • q Quit",
         AppMode::SecretList => "j/k Navigate • Space Describe • D Delete • / Search • Tab Switch • q Quit",
-        AppMode::Logs => "J/K Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • Esc Back • q Quit",
+        AppMode::Logs => "J/K Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • R Toggle Auto-refresh • Esc Back • q Quit",
         AppMode::Describe => "J/K Scroll • PgUp/PgDn Page • Esc Back • q Quit",
         AppMode::Search => "Type to search • Enter Confirm • Esc Cancel",
         AppMode::Confirm => "y/Y Yes • n/N/Esc No",

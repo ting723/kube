@@ -1,7 +1,7 @@
 use ratatui::{
     layout::Rect,
     style::{Color, Style},
-    widgets::{Block, Borders, List, ListItem, ListState},
+    widgets::{Block, Borders, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame,
 };
 
@@ -10,10 +10,11 @@ use crate::app::AppState;
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let title = if let Some(pod) = app.get_selected_pod() {
         format!(
-            "Logs - {}/{} (↑/↓:navigate, J/K:scroll, PgUp/PgDn:page, Auto-scroll:{})", 
+            "Logs - {}/{} (J/K:scroll, PgUp/PgDn:page, A:auto-scroll:{}, R:auto-refresh:{})", 
             app.current_namespace, 
             pod.name,
-            if app.logs_auto_scroll { "ON" } else { "OFF" }
+            if app.logs_auto_scroll { "ON" } else { "OFF" },
+            if app.logs_auto_refresh { "ON" } else { "OFF" }
         )
     } else {
         "Logs".to_string()
@@ -59,4 +60,23 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         .style(Style::default().fg(Color::White));
 
     f.render_stateful_widget(list, area, &mut list_state);
+    
+    // 添加垂直滚动条
+    if total_lines > visible_height {
+        let mut scrollbar_state = ScrollbarState::default()
+            .content_length(total_lines)
+            .viewport_content_length(visible_height)
+            .position(start_index);
+        
+        let scrollbar = Scrollbar::default()
+            .orientation(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(Some("↑"))
+            .end_symbol(Some("↓"));
+        
+        f.render_stateful_widget(
+            scrollbar,
+            area.inner(&ratatui::layout::Margin { vertical: 1, horizontal: 0 }),
+            &mut scrollbar_state,
+        );
+    }
 }

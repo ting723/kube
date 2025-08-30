@@ -115,6 +115,118 @@ pub fn describe_pod(namespace: &str, pod_name: &str) -> Result<String> {
 }
 
 #[allow(dead_code)]
+pub fn describe_service(namespace: &str, service_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "service", "-n", namespace, service_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn describe_deployment(namespace: &str, deployment_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "deployment", "-n", namespace, deployment_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn describe_daemonset(namespace: &str, daemonset_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "daemonset", "-n", namespace, daemonset_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn describe_node(node_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "node", node_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn describe_configmap(namespace: &str, configmap_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "configmap", "-n", namespace, configmap_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn describe_secret(namespace: &str, secret_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "secret", "-n", namespace, secret_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn describe_pvc(namespace: &str, pvc_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "pvc", "-n", namespace, pvc_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn describe_pv(pv_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "pv", pv_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
 pub fn delete_pod(namespace: &str, pod_name: &str) -> Result<String> {
     let output = Command::new("kubectl")
         .args(&["delete", "pod", "-n", namespace, pod_name])
