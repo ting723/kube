@@ -143,6 +143,9 @@ async fn run_app(
                         }
                         
                         app.refresh_data();
+                        
+                        // 强制重绘界面确保显示正常
+                        terminal.draw(|f| ui::render_ui(f, app))?;
                     }
                     
                     // Handle mode changes that require data loading
@@ -505,21 +508,30 @@ async fn execute_external_command(
         }
     }
 
-    // 智能处理：只有在非成功退出时才等待用户按键
+    // 智能处理：根据命令结果提供不同的用户体验
     if !is_success {
-        println!("Press Enter to continue...");
+        println!("\n=== Command completed with issues ===");
+        println!("The exec session ended. This might be normal if:");
+        println!("- You typed 'exit' to leave the container");
+        println!("- The container doesn't have the requested command");
+        println!("- The shell environment is limited");
+        println!("\nPress Enter to return to Kube TUI...");
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
     } else {
         // 成功执行后等待1秒，然后自动返回
-        println!("Returning to application in 1 second...");
+        println!("\nReturning to application in 1 second...");
         std::thread::sleep(std::time::Duration::from_millis(1000));
     }
 
-    // 重新进入TUI模式
+    // 重新进入TUI模式并强制刷新
     enable_raw_mode()?;
     execute!(terminal.backend_mut(), EnterAlternateScreen)?;
     terminal.hide_cursor()?;
+    terminal.clear()?; // 强制清屏
+    
+    // 确保终端完全恢复
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
     Ok(())
 }
