@@ -181,3 +181,24 @@ pub struct PersistentVolumeClaim {
 }
 
 pub type PVC = PersistentVolumeClaim;
+
+// 资源使用情况数据结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceMetrics {
+    pub name: String,
+    pub namespace: String,
+    pub cpu: String,
+    pub memory: String,
+    pub cpu_percentage: Option<f64>,
+    pub memory_percentage: Option<f64>,
+    pub containers: Vec<ContainerMetrics>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContainerMetrics {
+    pub name: String,
+    pub cpu: String,
+    pub memory: String,
+    pub cpu_percentage: Option<f64>,
+    pub memory_percentage: Option<f64>,
+}

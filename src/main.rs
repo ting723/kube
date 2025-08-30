@@ -9,6 +9,7 @@ use crossterm::{
     event::Event,
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    event::{EnableMouseCapture, DisableMouseCapture},
 };
 use kubectl::KubectlClient;
 use ratatui::{
@@ -41,8 +42,8 @@ async fn main() -> Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    // 不启用完整的鼠标捕获，允许文本选中操作
-    execute!(stdout, EnterAlternateScreen)?;
+    // 启用鼠标事件支持滚轮功能
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -61,7 +62,8 @@ async fn main() -> Result<()> {
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
-        LeaveAlternateScreen
+        LeaveAlternateScreen,
+        DisableMouseCapture
     )?;
     terminal.show_cursor()?;
 
@@ -354,11 +356,64 @@ async fn run_app(
                                 }
                             }
                         }
+                        AppMode::YamlView => {
+                            if app.yaml_content.is_empty() {
+                                match app.previous_mode {
+                                    AppMode::PodList => {
+                                        if let Some(pod) = app.get_selected_pod() {
+                                            let pod_name = pod.name.clone();
+                                            let namespace = app.current_namespace.clone();
+                                            app.set_current_command(&format!("kubectl get pod -n {} {} -o yaml", namespace, pod_name));
+                                            if let Ok(yaml) = client.get_yaml("pod", Some(&namespace), &pod_name).await {
+                                                app.yaml_content = yaml;
+                                            }
+                                            app.clear_current_command();
+                                        }
+                                    }
+                                    AppMode::ServiceList => {
+                                        if let Some(service) = app.get_selected_service() {
+                                            let service_name = service.name.clone();
+                                            let namespace = app.current_namespace.clone();
+                                            app.set_current_command(&format!("kubectl get service -n {} {} -o yaml", namespace, service_name));
+                                            if let Ok(yaml) = client.get_yaml("service", Some(&namespace), &service_name).await {
+                                                app.yaml_content = yaml;
+                                            }
+                                            app.clear_current_command();
+                                        }
+                                    }
+                                    AppMode::NodeList => {
+                                        if let Some(node) = app.get_selected_node() {
+                                            let node_name = node.name.clone();
+                                            app.set_current_command(&format!("kubectl get node {} -o yaml", node_name));
+                                            if let Ok(yaml) = client.get_yaml("node", None, &node_name).await {
+                                                app.yaml_content = yaml;
+                                            }
+                                            app.clear_current_command();
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        AppMode::TopView => {
+                            if app.pod_metrics.is_empty() || app.should_refresh() {
+                                let namespace = app.current_namespace.clone();
+                                app.set_current_command(&format!("kubectl top pods -n {}", namespace));
+                                if let Ok(metrics) = client.get_pod_metrics(&namespace).await {
+                                    app.pod_metrics = metrics;
+                                    app.refresh_data();
+                                }
+                                app.clear_current_command();
+                            }
+                        }
                         _ => {}
                     }
                 }
                 Event::Resize(_, _) => {
                     // Terminal was resized, will be handled by next render
+                }
+                Event::Mouse(mouse_event) => {
+                    app.handle_mouse_event(mouse_event)?;
                 }
                 _ => {}
             }

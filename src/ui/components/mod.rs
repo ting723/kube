@@ -13,4 +13,6 @@ pub mod logs;
 pub mod describe;
 pub mod search;
 pub mod confirm;
+pub mod yaml_view;
+pub mod top_view;
 pub mod help;

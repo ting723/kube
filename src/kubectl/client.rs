@@ -850,4 +850,167 @@ impl KubectlClient {
             age,
         })
     }
+
+    // YAML配置相关方法
+    pub async fn get_yaml(&self, resource_type: &str, namespace: Option<&str>, name: &str) -> Result<String> {
+        match resource_type {
+            "pod" => {
+                if let Some(ns) = namespace {
+                    commands::get_pod_yaml(ns, name)
+                } else {
+                    Err(anyhow!("Pod requires namespace"))
+                }
+            },
+            "service" => {
+                if let Some(ns) = namespace {
+                    commands::get_service_yaml(ns, name)
+                } else {
+                    Err(anyhow!("Service requires namespace"))
+                }
+            },
+            "deployment" => {
+                if let Some(ns) = namespace {
+                    commands::get_deployment_yaml(ns, name)
+                } else {
+                    Err(anyhow!("Deployment requires namespace"))
+                }
+            },
+            "job" => {
+                if let Some(ns) = namespace {
+                    commands::get_job_yaml(ns, name)
+                } else {
+                    Err(anyhow!("Job requires namespace"))
+                }
+            },
+            "daemonset" => {
+                if let Some(ns) = namespace {
+                    commands::get_daemonset_yaml(ns, name)
+                } else {
+                    Err(anyhow!("DaemonSet requires namespace"))
+                }
+            },
+            "node" => commands::get_node_yaml(name),
+            "configmap" => {
+                if let Some(ns) = namespace {
+                    commands::get_configmap_yaml(ns, name)
+                } else {
+                    Err(anyhow!("ConfigMap requires namespace"))
+                }
+            },
+            "secret" => {
+                if let Some(ns) = namespace {
+                    commands::get_secret_yaml(ns, name)
+                } else {
+                    Err(anyhow!("Secret requires namespace"))
+                }
+            },
+            "pvc" => {
+                if let Some(ns) = namespace {
+                    commands::get_pvc_yaml(ns, name)
+                } else {
+                    Err(anyhow!("PVC requires namespace"))
+                }
+            },
+            "pv" => commands::get_pv_yaml(name),
+            _ => Err(anyhow!("Unsupported resource type: {}", resource_type))
+        }
+    }
+
+    // 资源监控相关方法
+    pub async fn get_pod_metrics(&self, namespace: &str) -> Result<Vec<ResourceMetrics>> {
+        let output = commands::get_top_pods(namespace)?;
+        let mut metrics = Vec::new();
+        
+        for line in output.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            
+            if let Ok(metric) = self.parse_pod_metrics_line(line, namespace).await {
+                metrics.push(metric);
+            }
+        }
+        
+        Ok(metrics)
+    }
+
+    async fn parse_pod_metrics_line(&self, line: &str, namespace: &str) -> Result<ResourceMetrics> {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 3 {
+            return Err(anyhow!("Invalid metrics line format"));
+        }
+        
+        let name = parts[0].to_string();
+        let cpu = parts[1].to_string();
+        let memory = parts[2].to_string();
+        
+        // 尝试解析CPU和内存百分比（如果有的话）
+        let cpu_percentage = self.parse_cpu_percentage(&cpu);
+        let memory_percentage = self.parse_memory_percentage(&memory);
+        
+        // 获取容器级别的详细信息
+        let containers = self.get_container_metrics(namespace, &name).await.unwrap_or_default();
+        
+        Ok(ResourceMetrics {
+            name,
+            namespace: namespace.to_string(),
+            cpu,
+            memory,
+            cpu_percentage,
+            memory_percentage,
+            containers,
+        })
+    }
+
+    async fn get_container_metrics(&self, namespace: &str, pod_name: &str) -> Result<Vec<crate::kubectl::types::ContainerMetrics>> {
+        let output = commands::get_top_pod(namespace, pod_name)?;
+        let mut containers = Vec::new();
+        
+        for line in output.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            
+            if let Ok(container) = self.parse_container_metrics_line(line) {
+                containers.push(container);
+            }
+        }
+        
+        Ok(containers)
+    }
+
+    fn parse_container_metrics_line(&self, line: &str) -> Result<crate::kubectl::types::ContainerMetrics> {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 4 {
+            return Err(anyhow!("Invalid container metrics line format"));
+        }
+        
+        let name = parts[1].to_string(); // 第一列是pod名，第二列是容器名
+        let cpu = parts[2].to_string();
+        let memory = parts[3].to_string();
+        
+        let cpu_percentage = self.parse_cpu_percentage(&cpu);
+        let memory_percentage = self.parse_memory_percentage(&memory);
+        
+        Ok(crate::kubectl::types::ContainerMetrics {
+            name,
+            cpu,
+            memory,
+            cpu_percentage,
+            memory_percentage,
+        })
+    }
+
+    fn parse_cpu_percentage(&self, cpu_str: &str) -> Option<f64> {
+        if cpu_str.ends_with('m') {
+            cpu_str.trim_end_matches('m').parse::<f64>().ok().map(|v| v / 10.0) // 毫核转换为百分比
+        } else {
+            cpu_str.parse::<f64>().ok().map(|v| v * 100.0) // 核转换为百分比
+        }
+    }
+
+    fn parse_memory_percentage(&self, _memory_str: &str) -> Option<f64> {
+        // 这里需要根据实际的Pod容限来计算百分比，这里暂时返回None
+        None
+    }
 }

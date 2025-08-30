@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent, MouseEventKind};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
@@ -32,6 +32,8 @@ pub enum AppMode {
     Search,
     Confirm,
     Help,
+    YamlView,
+    TopView,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +89,12 @@ pub struct AppState {
     pub last_logs_refresh: Instant,
     // 执行操作标志
     pub pending_exec: Option<String>,
+    // YAML查看内容
+    pub yaml_content: String,
+    pub yaml_scroll: usize,
+    // 资源监控数据
+    pub pod_metrics: Vec<crate::kubectl::types::ResourceMetrics>,
+    pub metrics_scroll: usize,
 }
 
 impl Default for AppState {
@@ -136,6 +144,10 @@ impl Default for AppState {
             logs_refresh_interval: Duration::from_secs(2),
             last_logs_refresh: Instant::now(),
             pending_exec: None,
+            yaml_content: String::new(),
+            yaml_scroll: 0,
+            pod_metrics: Vec::new(),
+            metrics_scroll: 0,
         }
     }
 }
@@ -178,7 +190,7 @@ impl AppState {
             KeyCode::Char('?') | KeyCode::F(1) => self.mode = AppMode::Help,
             KeyCode::Esc => {
                 match self.mode {
-                    AppMode::Help | AppMode::Logs | AppMode::Describe => {
+                    AppMode::Help | AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
                         self.reset_scroll();
                         self.mode = self.get_previous_mode();
                     }
@@ -195,7 +207,7 @@ impl AppState {
             KeyCode::Char('k') | KeyCode::Up => self.move_selection_up(),
             KeyCode::Char('h') | KeyCode::Left => self.handle_left_navigation(),
             KeyCode::Char('l') | KeyCode::Right => self.handle_right_navigation(),
-            // 滚动操作（仅在 Logs 和 Describe 模式下）
+            // 滚动操作（仅在 Logs、Describe、YamlView 和 TopView 模式下）
             KeyCode::Char('J') => self.scroll_down(),
             KeyCode::Char('K') => self.scroll_up(),
             KeyCode::PageDown => self.scroll_page_down(),
@@ -206,6 +218,8 @@ impl AppState {
             KeyCode::Char('L') => self.handle_logs(),       // L 查看日志
             KeyCode::Char('D') => self.handle_delete(),     // D 删除（需确认）
             KeyCode::Char('E') => self.handle_exec(),       // E 进入容器
+            KeyCode::Char('Y') => self.handle_yaml_view(),   // Y 查看YAML配置
+            KeyCode::Char('T') => self.handle_top_view(),    // T 查看资源使用
             // 搜索
             KeyCode::Char('/') => self.start_search(),
             KeyCode::Char('n') => self.search_next(),
@@ -224,6 +238,7 @@ impl AppState {
             }
             // Tab 切换面板
             KeyCode::Tab => self.switch_panel(),
+            KeyCode::BackTab => self.switch_panel_left(), // Shift+Tab 向后切换
             _ => {}
         }
         Ok(())
@@ -381,6 +396,12 @@ impl AppState {
                     self.selected_node_index = 0;
                 }
             }
+            // 在资源列表模式下，Enter键也可以进入Describe模式
+            AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
+            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
+            | AppMode::ConfigMapList | AppMode::SecretList => {
+                self.handle_describe();
+            }
             _ => {}
         }
     }
@@ -515,6 +536,16 @@ impl AppState {
                     self.describe_scroll -= 1;
                 }
             }
+            AppMode::YamlView => {
+                if self.yaml_scroll > 0 {
+                    self.yaml_scroll -= 1;
+                }
+            }
+            AppMode::TopView => {
+                if self.metrics_scroll > 0 {
+                    self.metrics_scroll -= 1;
+                }
+            }
             _ => {}
         }
     }
@@ -532,6 +563,17 @@ impl AppState {
                     self.describe_scroll += 1;
                 }
             }
+            AppMode::YamlView => {
+                let lines: Vec<&str> = self.yaml_content.lines().collect();
+                if self.yaml_scroll + 1 < lines.len() {
+                    self.yaml_scroll += 1;
+                }
+            }
+            AppMode::TopView => {
+                if self.metrics_scroll + 1 < self.pod_metrics.len() {
+                    self.metrics_scroll += 1;
+                }
+            }
             _ => {}
         }
     }
@@ -543,6 +585,12 @@ impl AppState {
             }
             AppMode::Describe => {
                 self.describe_scroll = self.describe_scroll.saturating_sub(10);
+            }
+            AppMode::YamlView => {
+                self.yaml_scroll = self.yaml_scroll.saturating_sub(10);
+            }
+            AppMode::TopView => {
+                self.metrics_scroll = self.metrics_scroll.saturating_sub(10);
             }
             _ => {}
         }
@@ -559,6 +607,15 @@ impl AppState {
                 let max_scroll = lines.len().saturating_sub(1);
                 self.describe_scroll = (self.describe_scroll + 10).min(max_scroll);
             }
+            AppMode::YamlView => {
+                let lines: Vec<&str> = self.yaml_content.lines().collect();
+                let max_scroll = lines.len().saturating_sub(1);
+                self.yaml_scroll = (self.yaml_scroll + 10).min(max_scroll);
+            }
+            AppMode::TopView => {
+                let max_scroll = self.pod_metrics.len().saturating_sub(1);
+                self.metrics_scroll = (self.metrics_scroll + 10).min(max_scroll);
+            }
             _ => {}
         }
     }
@@ -566,6 +623,8 @@ impl AppState {
     fn reset_scroll(&mut self) {
         self.logs_scroll = 0;
         self.describe_scroll = 0;
+        self.yaml_scroll = 0;
+        self.metrics_scroll = 0;
     }
 
     // 操作相关方法
@@ -625,7 +684,7 @@ impl AppState {
 
     pub fn get_previous_mode(&self) -> AppMode {
         match self.mode {
-            AppMode::Logs | AppMode::Describe => {
+            AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
                 // 从之前记录的模式返回
                 self.previous_mode.clone()
             }
@@ -859,5 +918,57 @@ impl AppState {
                 }
             }
         }
+    }
+
+    // 处理YAML视图
+    fn handle_yaml_view(&mut self) {
+        match self.mode {
+            AppMode::PodList | AppMode::ServiceList | AppMode::DeploymentList | AppMode::JobList |
+            AppMode::DaemonSetList | AppMode::NodeList | AppMode::ConfigMapList | AppMode::SecretList |
+            AppMode::PVCList | AppMode::PVList => {
+                self.previous_mode = self.mode.clone();
+                self.mode = AppMode::YamlView;
+                self.yaml_scroll = 0;
+                // 在主循环中会加载相应的YAML内容
+            }
+            _ => {}
+        }
+    }
+
+    // 处理资源监控视图
+    fn handle_top_view(&mut self) {
+        match self.mode {
+            AppMode::PodList => {
+                self.previous_mode = self.mode.clone();
+                self.mode = AppMode::TopView;
+                self.metrics_scroll = 0;
+                // 在主循环中会加载Pod的资源使用情况
+            }
+            _ => {}
+        }
+    }
+
+    // 处理鼠标事件
+    pub fn handle_mouse_event(&mut self, mouse_event: MouseEvent) -> Result<()> {
+        match mouse_event.kind {
+            MouseEventKind::ScrollUp => {
+                match self.mode {
+                    AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                        self.scroll_up();
+                    }
+                    _ => {}
+                }
+            }
+            MouseEventKind::ScrollDown => {
+                match self.mode {
+                    AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                        self.scroll_down();
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        Ok(())
     }
 }

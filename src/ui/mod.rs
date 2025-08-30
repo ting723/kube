@@ -71,6 +71,19 @@ fn render_header(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::SecretList => 10,
             _ => 0,
         },
+        AppMode::YamlView | AppMode::TopView => match app.previous_mode {
+            AppMode::PodList => 1,
+            AppMode::ServiceList => 2,
+            AppMode::DeploymentList => 3,
+            AppMode::JobList => 4,
+            AppMode::PVCList => 5,
+            AppMode::PVList => 6,
+            AppMode::NodeList => 7,
+            AppMode::ConfigMapList => 8,
+            AppMode::DaemonSetList => 9,
+            AppMode::SecretList => 10,
+            _ => 1,
+        },
     };
 
     let tabs = Tabs::new(titles)
@@ -100,24 +113,28 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::Search => components::search::render(f, area, app),
         AppMode::Confirm => components::confirm::render(f, area, app),
         AppMode::Help => components::help::render(f, area, app),
+        AppMode::YamlView => components::yaml_view::render(f, area, app),
+        AppMode::TopView => components::top_view::render(f, area, app),
     }
 }
 
 fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
     let help_text = match app.mode {
-        AppMode::NamespaceList => "j/k ↑/↓ Navigate • Enter Select • h/l ←/→ Switch • q Quit • ? Help",
-        AppMode::PodList => "j/k Navigate • Space Describe • L Logs • D Delete • E Exec • / Search • Tab Switch • q Quit",
-        AppMode::ServiceList => "j/k Navigate • Space Describe • D Delete • / Search • Tab Switch • q Quit",
-        AppMode::NodeList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
-        AppMode::DeploymentList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
-        AppMode::JobList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
-        AppMode::DaemonSetList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
-        AppMode::PVCList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
-        AppMode::PVList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
-        AppMode::ConfigMapList => "j/k Navigate • Space Describe • D Delete • / Search • Tab Switch • q Quit",
-        AppMode::SecretList => "j/k Navigate • Space Describe • D Delete • / Search • Tab Switch • q Quit",
+        AppMode::NamespaceList => "j/k ↑/↓ Navigate • Enter Select • h/l ←/→ Switch • Tab/Shift+Tab Tabs • q Quit • ? Help",
+        AppMode::PodList => "j/k Navigate • Space Describe • Y YAML • T Top • L Logs • D Delete • E Exec • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::ServiceList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::NodeList => "j/k Navigate • Space Describe • Y YAML • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::DeploymentList => "j/k Navigate • Space Describe • Y YAML • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::JobList => "j/k Navigate • Space Describe • Y YAML • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::DaemonSetList => "j/k Navigate • Space Describe • Y YAML • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::PVCList => "j/k Navigate • Space Describe • Y YAML • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::PVList => "j/k Navigate • Space Describe • Y YAML • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::ConfigMapList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • Tab/Shift+Tab Switch • q Quit",
+        AppMode::SecretList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • Tab/Shift+Tab Switch • q Quit",
         AppMode::Logs => "J/K Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • R Toggle Auto-refresh • Esc Back • q Quit",
-        AppMode::Describe => "J/K Scroll • PgUp/PgDn Page • Esc Back • q Quit",
+        AppMode::Describe => "J/K Scroll • 鼠标滚轮 Scroll • PgUp/PgDn Page • Esc Back • q Quit",
+        AppMode::YamlView => "J/K Scroll • 鼠标滚轮 Scroll • PgUp/PgDn Page • Esc Back • q Quit",
+        AppMode::TopView => "J/K Scroll • PgUp/PgDn Page • Esc Back • q Quit",
         AppMode::Search => "Type to search • Enter Confirm • Esc Cancel",
         AppMode::Confirm => "y/Y Yes • n/N/Esc No",
         AppMode::Help => "Esc Back • q Quit",
@@ -136,16 +153,16 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
     } else {
         // 在空闲时显示当前模式的相关命令提示
         match app.mode {
-            AppMode::PodList => format!("Ready - Use: Space (describe), L (logs), E (exec), D (delete), / (search) - kubectl get pods -n {}", app.current_namespace),
-            AppMode::ServiceList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get services -n {}", app.current_namespace),
-            AppMode::DeploymentList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get deployments -n {}", app.current_namespace),
-            AppMode::JobList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get jobs -n {}", app.current_namespace),
-            AppMode::DaemonSetList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get daemonsets -n {}", app.current_namespace),
-            AppMode::NodeList => "Ready - Use: Space (describe), / (search) - kubectl get nodes".to_string(),
-            AppMode::ConfigMapList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get configmaps -n {}", app.current_namespace),
-            AppMode::SecretList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get secrets -n {}", app.current_namespace),
-            AppMode::PVCList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get pvc -n {}", app.current_namespace),
-            AppMode::PVList => "Ready - Use: Space (describe), D (delete), / (search) - kubectl get pv".to_string(),
+            AppMode::PodList => format!("Ready - Use: Space (describe), Y (yaml), T (top), L (logs), E (exec), D (delete), / (search) - kubectl get pods -n {}", app.current_namespace),
+            AppMode::ServiceList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get services -n {}", app.current_namespace),
+            AppMode::DeploymentList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get deployments -n {}", app.current_namespace),
+            AppMode::JobList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get jobs -n {}", app.current_namespace),
+            AppMode::DaemonSetList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get daemonsets -n {}", app.current_namespace),
+            AppMode::NodeList => "Ready - Use: Space (describe), Y (yaml), / (search) - kubectl get nodes".to_string(),
+            AppMode::ConfigMapList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get configmaps -n {}", app.current_namespace),
+            AppMode::SecretList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get secrets -n {}", app.current_namespace),
+            AppMode::PVCList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get pvc -n {}", app.current_namespace),
+            AppMode::PVList => "Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get pv".to_string(),
             AppMode::Logs => {
                 if let Some(pod) = app.get_selected_pod() {
                     format!("Logs Mode - J/K (scroll), A (auto-scroll), R (auto-refresh) - kubectl logs -f -n {} {} --tail=100", app.current_namespace, pod.name)
@@ -192,6 +209,42 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
                     },
                     _ => "Describe Mode - J/K (scroll), Esc (back)".to_string(),
                 }
+            },
+            AppMode::YamlView => {
+                match app.previous_mode {
+                    AppMode::PodList => {
+                        if let Some(pod) = app.get_selected_pod() {
+                            format!("YAML View Mode - J/K (scroll), Esc (back) - kubectl get pod -n {} {} -o yaml", app.current_namespace, pod.name)
+                        } else {
+                            "YAML View Mode - No pod selected".to_string()
+                        }
+                    },
+                    AppMode::ServiceList => {
+                        if let Some(service) = app.get_selected_service() {
+                            format!("YAML View Mode - J/K (scroll), Esc (back) - kubectl get service -n {} {} -o yaml", app.current_namespace, service.name)
+                        } else {
+                            "YAML View Mode - No service selected".to_string()
+                        }
+                    },
+                    AppMode::DeploymentList => {
+                        if let Some(deployment) = app.get_selected_deployment() {
+                            format!("YAML View Mode - J/K (scroll), Esc (back) - kubectl get deployment -n {} {} -o yaml", app.current_namespace, deployment.name)
+                        } else {
+                            "YAML View Mode - No deployment selected".to_string()
+                        }
+                    },
+                    AppMode::NodeList => {
+                        if let Some(node) = app.get_selected_node() {
+                            format!("YAML View Mode - J/K (scroll), Esc (back) - kubectl get node {} -o yaml", node.name)
+                        } else {
+                            "YAML View Mode - No node selected".to_string()
+                        }
+                    },
+                    _ => "YAML View Mode - J/K (scroll), Esc (back)".to_string(),
+                }
+            },
+            AppMode::TopView => {
+                format!("Resource Usage Mode - J/K (scroll), Esc (back) - kubectl top pods -n {}", app.current_namespace)
             },
             AppMode::Search => "Search Mode - Type to search, Enter (select), Esc (cancel)".to_string(),
             AppMode::NamespaceList => "Ready - Select namespace - kubectl get namespaces".to_string(),

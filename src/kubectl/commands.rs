@@ -370,3 +370,161 @@ pub fn get_pvs() -> Result<String> {
 
     Ok(String::from_utf8(output.stdout)?)
 }
+
+// YAML配置相关命令
+pub fn get_pod_yaml(namespace: &str, pod_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "pod", "-n", namespace, pod_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_service_yaml(namespace: &str, service_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "service", "-n", namespace, service_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_deployment_yaml(namespace: &str, deployment_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "deployment", "-n", namespace, deployment_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_job_yaml(namespace: &str, job_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "job", "-n", namespace, job_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_daemonset_yaml(namespace: &str, daemonset_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "daemonset", "-n", namespace, daemonset_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_node_yaml(node_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "node", node_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_configmap_yaml(namespace: &str, configmap_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "configmap", "-n", namespace, configmap_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_secret_yaml(namespace: &str, secret_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "secret", "-n", namespace, secret_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_pvc_yaml(namespace: &str, pvc_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "pvc", "-n", namespace, pvc_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_pv_yaml(pv_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "pv", pv_name, "-o", "yaml"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+// 资源监控相关命令
+pub fn get_top_pods(namespace: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["top", "pods", "-n", namespace, "--no-headers"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl top failed: {}. Note: metrics-server might not be installed.", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+pub fn get_top_pod(namespace: &str, pod_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["top", "pod", "-n", namespace, pod_name, "--containers", "--no-headers"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl top failed: {}. Note: metrics-server might not be installed.", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}

@@ -12,79 +12,79 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let title = match app.previous_mode {
         AppMode::PodList => {
             if let Some(pod) = app.get_selected_pod() {
-                format!("Describe - Pod {}/{} (J/K:滚动, 鼠标滚轮:滚动, PgUp/PgDn:翻页)", app.current_namespace, pod.name)
+                format!("YAML配置 - Pod {}/{} (J/K:滚动, 鼠标滚轮:滚动, PgUp/PgDn:翻页)", app.current_namespace, pod.name)
             } else {
-                "Describe - Pod".to_string()
+                "YAML配置 - Pod".to_string()
             }
         }
         AppMode::ServiceList => {
             if let Some(service) = app.get_selected_service() {
-                format!("Describe - Service {}/{} (J/K:scroll, PgUp/PgDn:page)", app.current_namespace, service.name)
+                format!("YAML配置 - Service {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, service.name)
             } else {
-                "Describe - Service".to_string()
+                "YAML配置 - Service".to_string()
             }
         }
         AppMode::DeploymentList => {
             if let Some(deployment) = app.get_selected_deployment() {
-                format!("Describe - Deployment {}/{} (J/K:scroll, PgUp/PgDn:page)", app.current_namespace, deployment.name)
+                format!("YAML配置 - Deployment {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, deployment.name)
             } else {
-                "Describe - Deployment".to_string()
+                "YAML配置 - Deployment".to_string()
             }
         }
         AppMode::JobList => {
             if let Some(job) = app.get_selected_job() {
-                format!("Describe - Job {}/{} (J/K:scroll, PgUp/PgDn:page)", app.current_namespace, job.name)
+                format!("YAML配置 - Job {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, job.name)
             } else {
-                "Describe - Job".to_string()
+                "YAML配置 - Job".to_string()
             }
         }
         AppMode::DaemonSetList => {
             if let Some(daemonset) = app.get_selected_daemonset() {
-                format!("Describe - DaemonSet {}/{} (J/K:scroll, PgUp/PgDn:page)", app.current_namespace, daemonset.name)
+                format!("YAML配置 - DaemonSet {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, daemonset.name)
             } else {
-                "Describe - DaemonSet".to_string()
+                "YAML配置 - DaemonSet".to_string()
             }
         }
         AppMode::NodeList => {
             if let Some(node) = app.get_selected_node() {
-                format!("Describe - Node {} (J/K:scroll, PgUp/PgDn:page)", node.name)
+                format!("YAML配置 - Node {} (J/K:滚动, PgUp/PgDn:翻页)", node.name)
             } else {
-                "Describe - Node".to_string()
+                "YAML配置 - Node".to_string()
             }
         }
         AppMode::ConfigMapList => {
             if let Some(configmap) = app.get_selected_configmap() {
-                format!("Describe - ConfigMap {}/{} (J/K:scroll, PgUp/PgDn:page)", app.current_namespace, configmap.name)
+                format!("YAML配置 - ConfigMap {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, configmap.name)
             } else {
-                "Describe - ConfigMap".to_string()
+                "YAML配置 - ConfigMap".to_string()
             }
         }
         AppMode::SecretList => {
             if let Some(secret) = app.get_selected_secret() {
-                format!("Describe - Secret {}/{} (J/K:scroll, PgUp/PgDn:page)", app.current_namespace, secret.name)
+                format!("YAML配置 - Secret {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, secret.name)
             } else {
-                "Describe - Secret".to_string()
+                "YAML配置 - Secret".to_string()
             }
         }
         AppMode::PVCList => {
             if let Some(pvc) = app.get_selected_pvc() {
-                format!("Describe - PVC {}/{} (J/K:scroll, PgUp/PgDn:page)", app.current_namespace, pvc.name)
+                format!("YAML配置 - PVC {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, pvc.name)
             } else {
-                "Describe - PVC".to_string()
+                "YAML配置 - PVC".to_string()
             }
         }
         AppMode::PVList => {
             if let Some(pv) = app.get_selected_pv() {
-                format!("Describe - PV {} (J/K:scroll, PgUp/PgDn:page)", pv.name)
+                format!("YAML配置 - PV {} (J/K:滚动, PgUp/PgDn:翻页)", pv.name)
             } else {
-                "Describe - PV".to_string()
+                "YAML配置 - PV".to_string()
             }
         }
-        _ => "Describe".to_string(),
+        _ => "YAML配置".to_string(),
     };
 
-    if app.describe_content.is_empty() {
-        let no_content = Paragraph::new("No description available or loading...")
+    if app.yaml_content.is_empty() {
+        let no_content = Paragraph::new("正在加载YAML配置...")
             .block(Block::default().borders(Borders::ALL).title(title))
             .style(Style::default().fg(Color::Gray));
         
@@ -93,12 +93,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     }
 
     // 将内容按行分割并应用语法高亮
-    let lines: Vec<&str> = app.describe_content.lines().collect();
+    let lines: Vec<&str> = app.yaml_content.lines().collect();
     let visible_height = area.height.saturating_sub(2) as usize;
     let total_lines = lines.len();
     
     // 计算显示范围
-    let start_index = app.describe_scroll;
+    let start_index = app.yaml_scroll;
     let end_index = (start_index + visible_height).min(total_lines);
     
     // 创建带语法高亮的可见内容项
@@ -140,7 +140,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     }
 }
 
-// YAML语法高亮函数
+// YAML语法高亮函数（重用describe.rs中的函数）
 fn highlight_yaml_line(line: &str) -> Line<'_> {
     let trimmed = line.trim_start();
     let indent = line.len() - trimmed.len();
@@ -177,19 +177,19 @@ fn highlight_yaml_line(line: &str) -> Line<'_> {
             if !value.is_empty() {
                 // 检查值的类型并应用不同颜色
                 if value.starts_with('"') && value.ends_with('"') {
-                    // 字符串값
+                    // 字符串值
                     spans.push(Span::styled(format!(" {}", value), Style::default().fg(Color::Green)));
                 } else if value.parse::<i64>().is_ok() || value.parse::<f64>().is_ok() {
-                    // 数字값
+                    // 数字值
                     spans.push(Span::styled(format!(" {}", value), Style::default().fg(Color::Magenta)));
                 } else if *value == "true" || *value == "false" {
-                    // 布尔값
+                    // 布尔值
                     spans.push(Span::styled(format!(" {}", value), Style::default().fg(Color::Blue)));
                 } else if *value == "null" || *value == "~" {
-                    // null값
+                    // null值
                     spans.push(Span::styled(format!(" {}", value), Style::default().fg(Color::Gray)));
                 } else {
-                    // 普通값
+                    // 普通值
                     spans.push(Span::styled(format!(" {}", value), Style::default().fg(Color::White)));
                 }
             }
@@ -197,14 +197,12 @@ fn highlight_yaml_line(line: &str) -> Line<'_> {
             // 只有冒号，可能是对象开始
             spans.push(Span::styled(":", Style::default().fg(Color::Cyan)));
         }
-    } else if trimmed.starts_with("Name:") || 
-              trimmed.starts_with("Namespace:") ||
-              trimmed.starts_with("Labels:") ||
-              trimmed.starts_with("Annotations:") ||
-              trimmed.starts_with("Status:") ||
-              trimmed.starts_with("Type:") ||
-              trimmed.starts_with("Events:") {
-        // kubectl describe의 특별 필드
+    } else if trimmed.starts_with("apiVersion:") || 
+              trimmed.starts_with("kind:") ||
+              trimmed.starts_with("metadata:") ||
+              trimmed.starts_with("spec:") ||
+              trimmed.starts_with("status:") {
+        // YAML的特殊字段
         if let Some(colon_pos) = trimmed.find(':') {
             let field = &trimmed[..colon_pos];
             let rest = &trimmed[colon_pos..];
@@ -213,11 +211,11 @@ fn highlight_yaml_line(line: &str) -> Line<'_> {
         } else {
             spans.push(Span::styled(trimmed, Style::default().fg(Color::White)));
         }
-    } else if trimmed.starts_with("====") || trimmed.starts_with("----") {
-        // 분隔선
+    } else if trimmed.starts_with("---") {
+        // 分隔线
         spans.push(Span::styled(trimmed, Style::default().fg(Color::Gray)));
     } else {
-        // 일반 텍스트
+        // 一般文本
         spans.push(Span::styled(trimmed, Style::default().fg(Color::White)));
     }
     
