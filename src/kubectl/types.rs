@@ -89,3 +89,84 @@ pub struct Namespace {
     pub status: String,
     pub age: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Node {
+    pub name: String,
+    pub status: String,
+    pub roles: Vec<String>,
+    pub age: String,
+    pub version: String,
+    pub internal_ip: Option<String>,
+    pub external_ip: Option<String>,
+    pub os_image: Option<String>,
+    pub kernel_version: Option<String>,
+    pub container_runtime: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigMap {
+    pub name: String,
+    pub namespace: String,
+    pub data_count: usize,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Secret {
+    pub name: String,
+    pub namespace: String,
+    pub type_: String,
+    pub data_count: usize,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Deployment {
+    pub name: String,
+    pub namespace: String,
+    pub ready: String,
+    pub up_to_date: u32,
+    pub available: u32,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DaemonSet {
+    pub name: String,
+    pub namespace: String,
+    pub desired: u32,
+    pub current: u32,
+    pub ready: u32,
+    pub up_to_date: u32,
+    pub available: u32,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersistentVolume {
+    pub name: String,
+    pub capacity: String,
+    pub access_modes: Vec<String>,
+    pub reclaim_policy: String,
+    pub status: String,
+    pub claim: Option<String>,
+    pub storage_class: Option<String>,
+    pub age: String,
+}
+
+pub type PV = PersistentVolume;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersistentVolumeClaim {
+    pub name: String,
+    pub namespace: String,
+    pub status: String,
+    pub volume: Option<String>,
+    pub capacity: Option<String>,
+    pub access_modes: Vec<String>,
+    pub storage_class: Option<String>,
+    pub age: String,
+}
+
+pub type PVC = PersistentVolumeClaim;

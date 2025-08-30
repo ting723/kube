@@ -45,6 +45,48 @@ pub fn get_services(namespace: &str) -> Result<String> {
     Ok(String::from_utf8(output.stdout)?)
 }
 
+#[allow(dead_code)]
+pub fn get_nodes() -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "nodes", "-o", "json"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn get_configmaps(namespace: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "configmaps", "-n", namespace, "-o", "json"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn get_secrets(namespace: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "secrets", "-n", namespace, "-o", "json"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
 pub fn get_pod_logs(namespace: &str, pod_name: &str, lines: u32) -> Result<String> {
     let output = Command::new("kubectl")
         .args(&["logs", "-n", namespace, pod_name, "--tail", &lines.to_string()])
@@ -131,4 +173,60 @@ pub fn check_kubectl_available() -> bool {
     }
     
     false
+}
+
+#[allow(dead_code)]
+pub fn get_deployments(namespace: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "deployments", "-n", namespace, "-o", "json"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn get_daemonsets(namespace: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "daemonsets", "-n", namespace, "-o", "json"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn get_pvcs(namespace: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "pvc", "-n", namespace, "-o", "json"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn get_pvs() -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "pv", "-o", "json"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
 }
