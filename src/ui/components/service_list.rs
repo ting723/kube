@@ -24,7 +24,16 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let rows: Vec<Row> = app
         .services
         .iter()
-        .map(|service| {
+        .enumerate()
+        .map(|(i, service)| {
+            let style = if i == app.selected_service_index {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+
             let ports_str = service
                 .ports
                 .iter()
@@ -45,7 +54,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(service.external_ip.clone().unwrap_or_else(|| "<none>".to_string())),
                 Cell::from(ports_str),
                 Cell::from(service.age.clone()),
-            ])
+            ]).style(style)
         })
         .collect();
 
@@ -66,7 +75,19 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Constraint::Percentage(15),
             Constraint::Percentage(20),
             Constraint::Percentage(10),
-        ]);
+        ])
+        .highlight_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
+        );
 
-    f.render_widget(table, area);
+    f.render_stateful_widget(table, area, &mut create_table_state(app.selected_service_index));
+}
+
+fn create_table_state(selected: usize) -> ratatui::widgets::TableState {
+    let mut state = ratatui::widgets::TableState::default();
+    state.select(Some(selected));
+    state
 }

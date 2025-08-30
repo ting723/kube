@@ -165,6 +165,26 @@ impl KubectlClient {
     }
 
     #[allow(dead_code)]
+    pub async fn get_jobs(&self, namespace: &str) -> Result<Vec<Job>> {
+        let json_output = commands::get_jobs(namespace)?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut jobs = Vec::new();
+        
+        for item in items {
+            if let Ok(job) = self.parse_job(item) {
+                jobs.push(job);
+            }
+        }
+
+        Ok(jobs)
+    }
+
+    #[allow(dead_code)]
     pub async fn get_daemonsets(&self, namespace: &str) -> Result<Vec<DaemonSet>> {
         let json_output = commands::get_daemonsets(namespace)?;
         let parsed: Value = serde_json::from_str(&json_output)?;
@@ -239,6 +259,10 @@ impl KubectlClient {
 
     pub async fn describe_deployment(&self, namespace: &str, deployment_name: &str) -> Result<String> {
         commands::describe_deployment(namespace, deployment_name)
+    }
+
+    pub async fn describe_job(&self, namespace: &str, job_name: &str) -> Result<String> {
+        commands::describe_job(namespace, job_name)
     }
 
     pub async fn describe_daemonset(&self, namespace: &str, daemonset_name: &str) -> Result<String> {
@@ -615,6 +639,60 @@ impl KubectlClient {
             up_to_date,
             available,
             age,
+        })
+    }
+
+    #[allow(dead_code)]
+    fn parse_job(&self, item: &Value) -> Result<Job> {
+        let metadata = &item["metadata"];
+        let spec = &item["spec"];
+        let status = &item["status"];
+
+        let name = metadata["name"]
+            .as_str()
+            .ok_or_else(|| anyhow!("Missing job name"))?
+            .to_string();
+
+        let namespace = metadata["namespace"]
+            .as_str()
+            .ok_or_else(|| anyhow!("Missing job namespace"))?
+            .to_string();
+
+        let completions = spec["completions"].as_u64().map(|c| c as u32);
+        let successful = status["succeeded"].as_u64().unwrap_or(0) as u32;
+        
+        // 计算作业状态
+        let job_status = if status["succeeded"].as_u64().unwrap_or(0) > 0 {
+            "Complete".to_string()
+        } else if status["failed"].as_u64().unwrap_or(0) > 0 {
+            "Failed".to_string()
+        } else if status["active"].as_u64().unwrap_or(0) > 0 {
+            "Running".to_string()
+        } else {
+            "Pending".to_string()
+        };
+
+        // 计算持续时间
+        let duration = if let (Some(_start_time), Some(_completion_time)) = (
+            status["startTime"].as_str(),
+            status["completionTime"].as_str()
+        ) {
+            // 这里可以计算真实的持续时间，简化处理
+            Some("<calculated>".to_string())
+        } else {
+            None
+        };
+
+        let age = self.calculate_age(metadata["creationTimestamp"].as_str());
+
+        Ok(Job {
+            name,
+            namespace,
+            completions,
+            successful,
+            age,
+            duration,
+            status: job_status,
         })
     }
 

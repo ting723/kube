@@ -132,6 +132,17 @@ pub struct Deployment {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Job {
+    pub name: String,
+    pub namespace: String,
+    pub completions: Option<u32>,
+    pub successful: u32,
+    pub age: String,
+    pub duration: Option<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonSet {
     pub name: String,
     pub namespace: String,

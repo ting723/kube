@@ -87,6 +87,20 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                     }
                 }).collect()
             }
+            AppMode::JobList => {
+                app.search_results.iter().map(|&index| {
+                    if let Some(job) = app.jobs.get(index) {
+                        let style = if index == app.selected_job_index {
+                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(Color::White)
+                        };
+                        ListItem::new(format!("{} - {}", job.name, job.status)).style(style)
+                    } else {
+                        ListItem::new("Invalid index").style(Style::default().fg(Color::Red))
+                    }
+                }).collect()
+            }
             AppMode::NodeList => {
                 app.search_results.iter().map(|&index| {
                     if let Some(node) = app.nodes.get(index) {
@@ -183,6 +197,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                     AppMode::PodList => idx == app.selected_pod_index,
                     AppMode::ServiceList => idx == app.selected_service_index,
                     AppMode::DeploymentList => idx == app.selected_deployment_index,
+                    AppMode::JobList => idx == app.selected_job_index,
                     AppMode::NodeList => idx == app.selected_node_index,
                     AppMode::DaemonSetList => idx == app.selected_daemonset_index,
                     AppMode::ConfigMapList => idx == app.selected_configmap_index,

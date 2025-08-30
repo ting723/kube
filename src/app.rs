@@ -18,13 +18,14 @@ pub enum AppMode {
     NamespaceList,
     PodList,
     ServiceList,
-    NodeList,
     DeploymentList,
-    DaemonSetList,
-    ConfigMapList,
-    SecretList,
+    JobList,
     PVCList,
     PVList,
+    NodeList,
+    ConfigMapList,
+    DaemonSetList,
+    SecretList,
     Logs,
     Describe,
     #[allow(dead_code)]
@@ -43,6 +44,7 @@ pub struct AppState {
     pub selected_service_index: usize,
     pub selected_node_index: usize,
     pub selected_deployment_index: usize,
+    pub selected_job_index: usize,
     pub selected_daemonset_index: usize,
     pub selected_configmap_index: usize,
     pub selected_secret_index: usize,
@@ -53,6 +55,7 @@ pub struct AppState {
     pub services: Vec<crate::kubectl::types::Service>,
     pub nodes: Vec<crate::kubectl::types::Node>,
     pub deployments: Vec<crate::kubectl::types::Deployment>,
+    pub jobs: Vec<crate::kubectl::types::Job>,
     pub daemonsets: Vec<crate::kubectl::types::DaemonSet>,
     pub pvcs: Vec<crate::kubectl::types::PVC>,
     pub pvs: Vec<crate::kubectl::types::PV>,
@@ -97,6 +100,7 @@ impl Default for AppState {
             selected_service_index: 0,
             selected_node_index: 0,
             selected_deployment_index: 0,
+            selected_job_index: 0,
             selected_daemonset_index: 0,
             selected_configmap_index: 0,
             selected_secret_index: 0,
@@ -107,6 +111,7 @@ impl Default for AppState {
             services: Vec::new(),
             nodes: Vec::new(),
             deployments: Vec::new(),
+            jobs: Vec::new(),
             daemonsets: Vec::new(),
             pvcs: Vec::new(),
             pvs: Vec::new(),
@@ -178,7 +183,7 @@ impl AppState {
                         self.mode = self.get_previous_mode();
                     }
                     AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-                    | AppMode::DeploymentList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
+                    | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
                     | AppMode::ConfigMapList | AppMode::SecretList => {
                         self.mode = AppMode::NamespaceList;
                     }
@@ -261,6 +266,11 @@ impl AppState {
                     self.selected_deployment_index -= 1;
                 }
             }
+            AppMode::JobList => {
+                if self.selected_job_index > 0 {
+                    self.selected_job_index -= 1;
+                }
+            }
             AppMode::DaemonSetList => {
                 if self.selected_daemonset_index > 0 {
                     self.selected_daemonset_index -= 1;
@@ -317,6 +327,11 @@ impl AppState {
                     self.selected_deployment_index += 1;
                 }
             }
+            AppMode::JobList => {
+                if self.selected_job_index + 1 < self.jobs.len() {
+                    self.selected_job_index += 1;
+                }
+            }
             AppMode::DaemonSetList => {
                 if self.selected_daemonset_index + 1 < self.daemonsets.len() {
                     self.selected_daemonset_index += 1;
@@ -347,6 +362,7 @@ impl AppState {
                     self.pods.clear();
                     self.services.clear();
                     self.deployments.clear();
+                    self.jobs.clear();
                     self.daemonsets.clear();
                     self.pvcs.clear();
                     self.configmaps.clear();
@@ -356,6 +372,7 @@ impl AppState {
                     // 重置选中索引
                     self.selected_service_index = 0;
                     self.selected_deployment_index = 0;
+                    self.selected_job_index = 0;
                     self.selected_daemonset_index = 0;
                     self.selected_configmap_index = 0;
                     self.selected_secret_index = 0;
@@ -400,14 +417,15 @@ impl AppState {
         match self.mode {
             AppMode::NamespaceList => self.mode = AppMode::PodList,
             AppMode::PodList => self.mode = AppMode::ServiceList,
-            AppMode::ServiceList => self.mode = AppMode::NodeList,
-            AppMode::NodeList => self.mode = AppMode::DeploymentList,
-            AppMode::DeploymentList => self.mode = AppMode::DaemonSetList,
-            AppMode::DaemonSetList => self.mode = AppMode::ConfigMapList,
-            AppMode::ConfigMapList => self.mode = AppMode::SecretList,
-            AppMode::SecretList => self.mode = AppMode::PVCList,
+            AppMode::ServiceList => self.mode = AppMode::DeploymentList,
+            AppMode::DeploymentList => self.mode = AppMode::JobList,
+            AppMode::JobList => self.mode = AppMode::PVCList,
             AppMode::PVCList => self.mode = AppMode::PVList,
-            AppMode::PVList => self.mode = AppMode::Help,
+            AppMode::PVList => self.mode = AppMode::NodeList,
+            AppMode::NodeList => self.mode = AppMode::ConfigMapList,
+            AppMode::ConfigMapList => self.mode = AppMode::DaemonSetList,
+            AppMode::DaemonSetList => self.mode = AppMode::SecretList,
+            AppMode::SecretList => self.mode = AppMode::Help,
             AppMode::Help => self.mode = AppMode::NamespaceList,
             _ => {}
         }
@@ -416,14 +434,15 @@ impl AppState {
     fn switch_panel_left(&mut self) {
         match self.mode {
             AppMode::NamespaceList => self.mode = AppMode::Help,
-            AppMode::Help => self.mode = AppMode::PVList,
+            AppMode::Help => self.mode = AppMode::SecretList,
+            AppMode::SecretList => self.mode = AppMode::DaemonSetList,
+            AppMode::DaemonSetList => self.mode = AppMode::ConfigMapList,
+            AppMode::ConfigMapList => self.mode = AppMode::NodeList,
+            AppMode::NodeList => self.mode = AppMode::PVList,
             AppMode::PVList => self.mode = AppMode::PVCList,
-            AppMode::PVCList => self.mode = AppMode::SecretList,
-            AppMode::SecretList => self.mode = AppMode::ConfigMapList,
-            AppMode::ConfigMapList => self.mode = AppMode::DaemonSetList,
-            AppMode::DaemonSetList => self.mode = AppMode::DeploymentList,
-            AppMode::DeploymentList => self.mode = AppMode::NodeList,
-            AppMode::NodeList => self.mode = AppMode::ServiceList,
+            AppMode::PVCList => self.mode = AppMode::JobList,
+            AppMode::JobList => self.mode = AppMode::DeploymentList,
+            AppMode::DeploymentList => self.mode = AppMode::ServiceList,
             AppMode::ServiceList => self.mode = AppMode::PodList,
             AppMode::PodList => self.mode = AppMode::NamespaceList,
             _ => {}
@@ -445,6 +464,10 @@ impl AppState {
 
     pub fn get_selected_deployment(&self) -> Option<&crate::kubectl::types::Deployment> {
         self.deployments.get(self.selected_deployment_index)
+    }
+
+    pub fn get_selected_job(&self) -> Option<&crate::kubectl::types::Job> {
+        self.jobs.get(self.selected_job_index)
     }
 
     pub fn get_selected_daemonset(&self) -> Option<&crate::kubectl::types::DaemonSet> {
@@ -549,7 +572,7 @@ impl AppState {
     fn handle_describe(&mut self) {
         match self.mode {
             AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
+            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
             | AppMode::ConfigMapList | AppMode::SecretList => {
                 self.previous_mode = self.mode.clone();
                 self.reset_scroll();
@@ -655,6 +678,7 @@ impl AppState {
                 AppMode::ServiceList => self.selected_service_index = index,
                 AppMode::NodeList => self.selected_node_index = index,
                 AppMode::DeploymentList => self.selected_deployment_index = index,
+                AppMode::JobList => self.selected_job_index = index,
                 AppMode::DaemonSetList => self.selected_daemonset_index = index,
                 AppMode::PVCList => self.selected_pvc_index = index,
                 AppMode::PVList => self.selected_pv_index = index,
@@ -675,9 +699,13 @@ impl AppState {
                 self.mode = self.previous_mode.clone();
             }
             KeyCode::Enter => {
-                // 直接跳转到选中的搜索结果，不退出搜索模式
+                // 直接跳转到选中的搜索结果，并退出搜索模式
                 if !self.search_results.is_empty() {
                     self.jump_to_search_result();
+                    // 退出搜索模式，返回到列表模式
+                    self.search_mode = false;
+                    self.mode = self.previous_mode.clone();
+                    // 保留搜索结果以便后续操作
                 }
             }
             KeyCode::Backspace => {
@@ -745,6 +773,13 @@ impl AppState {
             AppMode::DeploymentList => {
                 for (index, deployment) in self.deployments.iter().enumerate() {
                     if deployment.name.to_lowercase().contains(&query) {
+                        self.search_results.push(index);
+                    }
+                }
+            }
+            AppMode::JobList => {
+                for (index, job) in self.jobs.iter().enumerate() {
+                    if job.name.to_lowercase().contains(&query) {
                         self.search_results.push(index);
                     }
                 }

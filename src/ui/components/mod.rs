@@ -3,6 +3,7 @@ pub mod pod_list;
 pub mod service_list;
 pub mod node_list;
 pub mod deployment_list;
+pub mod job_list;
 pub mod daemonset_list;
 pub mod pvc_list;
 pub mod pv_list;

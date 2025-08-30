@@ -143,6 +143,20 @@ pub fn describe_deployment(namespace: &str, deployment_name: &str) -> Result<Str
 }
 
 #[allow(dead_code)]
+pub fn describe_job(namespace: &str, job_name: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["describe", "job", "-n", namespace, job_name])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
 pub fn describe_daemonset(namespace: &str, daemonset_name: &str) -> Result<String> {
     let output = Command::new("kubectl")
         .args(&["describe", "daemonset", "-n", namespace, daemonset_name])
@@ -291,6 +305,20 @@ pub fn check_kubectl_available() -> bool {
 pub fn get_deployments(namespace: &str) -> Result<String> {
     let output = Command::new("kubectl")
         .args(&["get", "deployments", "-n", namespace, "-o", "json"])
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("kubectl failed: {}", error));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+#[allow(dead_code)]
+pub fn get_jobs(namespace: &str) -> Result<String> {
+    let output = Command::new("kubectl")
+        .args(&["get", "jobs", "-n", namespace, "-o", "json"])
         .output()?;
 
     if !output.status.success() {

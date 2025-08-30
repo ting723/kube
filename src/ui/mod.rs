@@ -28,44 +28,47 @@ pub fn render_ui(f: &mut Frame, app: &AppState) {
 }
 
 fn render_header(f: &mut Frame, area: Rect, app: &AppState) {
-    let titles = vec!["Namespaces", "Pods", "Services", "Nodes", "Deployments", "DaemonSets", "ConfigMaps", "Secrets", "PVCs", "PVs", "Help"];
+    let titles = vec!["Namespaces", "Pods", "Services", "Deployments", "Jobs", "PVCs", "PVs", "Nodes", "ConfigMaps", "DaemonSets", "Secrets", "Help"];
     let index = match app.mode {
         AppMode::NamespaceList => 0,
         AppMode::PodList => 1,
         AppMode::ServiceList => 2,
-        AppMode::NodeList => 3,
-        AppMode::DeploymentList => 4,
-        AppMode::DaemonSetList => 5,
-        AppMode::ConfigMapList => 6,
-        AppMode::SecretList => 7,
-        AppMode::PVCList => 8,
-        AppMode::PVList => 9,
-        AppMode::Help => 10,
+        AppMode::DeploymentList => 3,
+        AppMode::JobList => 4,
+        AppMode::PVCList => 5,
+        AppMode::PVList => 6,
+        AppMode::NodeList => 7,
+        AppMode::ConfigMapList => 8,
+        AppMode::DaemonSetList => 9,
+        AppMode::SecretList => 10,
+        AppMode::Help => 11,
         AppMode::Logs | AppMode::Describe => {
             // 根据之前的模式显示正确的Tab高亮
             match app.previous_mode {
                 AppMode::PodList => 1,
                 AppMode::ServiceList => 2,
-                AppMode::NodeList => 3,
-                AppMode::DeploymentList => 4,
-                AppMode::DaemonSetList => 5,
-                AppMode::ConfigMapList => 6,
-                AppMode::SecretList => 7,
-                AppMode::PVCList => 8,
-                AppMode::PVList => 9,
+                AppMode::DeploymentList => 3,
+                AppMode::JobList => 4,
+                AppMode::PVCList => 5,
+                AppMode::PVList => 6,
+                AppMode::NodeList => 7,
+                AppMode::ConfigMapList => 8,
+                AppMode::DaemonSetList => 9,
+                AppMode::SecretList => 10,
                 _ => 1,
             }
         }
         AppMode::Search | AppMode::Confirm => match app.get_previous_mode() {
             AppMode::PodList => 1,
             AppMode::ServiceList => 2,
-            AppMode::NodeList => 3,
-            AppMode::DeploymentList => 4,
-            AppMode::DaemonSetList => 5,
-            AppMode::ConfigMapList => 6,
-            AppMode::SecretList => 7,
-            AppMode::PVCList => 8,
-            AppMode::PVList => 9,
+            AppMode::DeploymentList => 3,
+            AppMode::JobList => 4,
+            AppMode::PVCList => 5,
+            AppMode::PVList => 6,
+            AppMode::NodeList => 7,
+            AppMode::ConfigMapList => 8,
+            AppMode::DaemonSetList => 9,
+            AppMode::SecretList => 10,
             _ => 0,
         },
     };
@@ -86,6 +89,7 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::ServiceList => components::service_list::render(f, area, app),
         AppMode::NodeList => components::node_list::render(f, area, app),
         AppMode::DeploymentList => components::deployment_list::render(f, area, app),
+        AppMode::JobList => components::job_list::render(f, area, app),
         AppMode::DaemonSetList => components::daemonset_list::render(f, area, app),
         AppMode::PVCList => components::pvc_list::render(f, area, app),
         AppMode::PVList => components::pv_list::render(f, area, app),
@@ -106,6 +110,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::ServiceList => "j/k Navigate • Space Describe • D Delete • / Search • Tab Switch • q Quit",
         AppMode::NodeList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
         AppMode::DeploymentList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
+        AppMode::JobList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
         AppMode::DaemonSetList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
         AppMode::PVCList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
         AppMode::PVList => "j/k Navigate • Space Describe • / Search • Tab Switch • q Quit",
@@ -126,10 +131,73 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
 }
 
 fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
-    let command_text = if app.current_command.is_empty() {
-        "Ready".to_string()
-    } else {
+    let command_text = if !app.current_command.is_empty() {
         format!("Executing: {}", app.current_command)
+    } else {
+        // 在空闲时显示当前模式的相关命令提示
+        match app.mode {
+            AppMode::PodList => format!("Ready - Use: Space (describe), L (logs), E (exec), D (delete), / (search) - kubectl get pods -n {}", app.current_namespace),
+            AppMode::ServiceList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get services -n {}", app.current_namespace),
+            AppMode::DeploymentList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get deployments -n {}", app.current_namespace),
+            AppMode::JobList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get jobs -n {}", app.current_namespace),
+            AppMode::DaemonSetList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get daemonsets -n {}", app.current_namespace),
+            AppMode::NodeList => "Ready - Use: Space (describe), / (search) - kubectl get nodes".to_string(),
+            AppMode::ConfigMapList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get configmaps -n {}", app.current_namespace),
+            AppMode::SecretList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get secrets -n {}", app.current_namespace),
+            AppMode::PVCList => format!("Ready - Use: Space (describe), D (delete), / (search) - kubectl get pvc -n {}", app.current_namespace),
+            AppMode::PVList => "Ready - Use: Space (describe), D (delete), / (search) - kubectl get pv".to_string(),
+            AppMode::Logs => {
+                if let Some(pod) = app.get_selected_pod() {
+                    format!("Logs Mode - J/K (scroll), A (auto-scroll), R (auto-refresh) - kubectl logs -f -n {} {} --tail=100", app.current_namespace, pod.name)
+                } else {
+                    "Logs Mode - No pod selected".to_string()
+                }
+            },
+            AppMode::Describe => {
+                match app.previous_mode {
+                    AppMode::PodList => {
+                        if let Some(pod) = app.get_selected_pod() {
+                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe pod -n {} {}", app.current_namespace, pod.name)
+                        } else {
+                            "Describe Mode - No pod selected".to_string()
+                        }
+                    },
+                    AppMode::ServiceList => {
+                        if let Some(service) = app.get_selected_service() {
+                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe service -n {} {}", app.current_namespace, service.name)
+                        } else {
+                            "Describe Mode - No service selected".to_string()
+                        }
+                    },
+                    AppMode::DeploymentList => {
+                        if let Some(deployment) = app.get_selected_deployment() {
+                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe deployment -n {} {}", app.current_namespace, deployment.name)
+                        } else {
+                            "Describe Mode - No deployment selected".to_string()
+                        }
+                    },
+                    AppMode::JobList => {
+                        if let Some(job) = app.get_selected_job() {
+                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe job -n {} {}", app.current_namespace, job.name)
+                        } else {
+                            "Describe Mode - No job selected".to_string()
+                        }
+                    },
+                    AppMode::NodeList => {
+                        if let Some(node) = app.get_selected_node() {
+                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe node {}", node.name)
+                        } else {
+                            "Describe Mode - No node selected".to_string()
+                        }
+                    },
+                    _ => "Describe Mode - J/K (scroll), Esc (back)".to_string(),
+                }
+            },
+            AppMode::Search => "Search Mode - Type to search, Enter (select), Esc (cancel)".to_string(),
+            AppMode::NamespaceList => "Ready - Select namespace - kubectl get namespaces".to_string(),
+            AppMode::Confirm => "Confirmation - y/Y (confirm), n/N/Esc (cancel)".to_string(),
+            AppMode::Help => "Help Mode - Esc (back), q (quit)".to_string(),
+        }
     };
 
     let command_line = Paragraph::new(command_text)

@@ -6,7 +6,7 @@ mod ui;
 use anyhow::Result;
 use app::{AppState, AppMode};
 use crossterm::{
-    event::{Event, EnableMouseCapture, DisableMouseCapture},
+    event::Event,
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -41,7 +41,8 @@ async fn main() -> Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    // 不启用完整的鼠标捕获，允许文本选中操作
+    execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -60,8 +61,7 @@ async fn main() -> Result<()> {
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
+        LeaveAlternateScreen
     )?;
     terminal.show_cursor()?;
 
@@ -124,15 +124,24 @@ async fn run_app(
                         app.logs.clear();
                         app.describe_content.clear();
                         
-                        // 清理当前数据并重新加载
-                        match app.mode {
-                            AppMode::PodList => {
-                                if let Ok(pods) = client.get_pods(&app.current_namespace).await {
-                                    app.pods = pods;
-                                }
-                            }
-                            _ => {}
+                        // 强制返回到PodList模式并重新加载所有数据
+                        app.mode = AppMode::PodList;
+                        app.previous_mode = AppMode::PodList;
+                        
+                        // 重新加载所有必要的数据
+                        if let Ok(pods) = client.get_pods(&app.current_namespace).await {
+                            app.pods = pods;
                         }
+                        if let Ok(services) = client.get_services(&app.current_namespace).await {
+                            app.services = services;
+                        }
+                        if let Ok(deployments) = client.get_deployments(&app.current_namespace).await {
+                            app.deployments = deployments;
+                        }
+                        if let Ok(jobs) = client.get_jobs(&app.current_namespace).await {
+                            app.jobs = jobs;
+                        }
+                        
                         app.refresh_data();
                     }
                     
@@ -158,6 +167,14 @@ async fn run_app(
                             if app.deployments.is_empty() || app.should_refresh() {
                                 if let Ok(deployments) = client.get_deployments(&app.current_namespace).await {
                                     app.deployments = deployments;
+                                    app.refresh_data();
+                                }
+                            }
+                        }
+                        AppMode::JobList => {
+                            if app.jobs.is_empty() || app.should_refresh() {
+                                if let Ok(jobs) = client.get_jobs(&app.current_namespace).await {
+                                    app.jobs = jobs;
                                     app.refresh_data();
                                 }
                             }
@@ -255,6 +272,17 @@ async fn run_app(
                                             app.clear_current_command();
                                         }
                                     }
+                                    AppMode::JobList => {
+                                        if let Some(job) = app.get_selected_job() {
+                                            let job_name = job.name.clone();
+                                            let namespace = app.current_namespace.clone();
+                                            app.set_current_command(&format!("kubectl describe job -n {} {}", namespace, job_name));
+                                            if let Ok(description) = client.describe_job(&namespace, &job_name).await {
+                                                app.describe_content = description;
+                                            }
+                                            app.clear_current_command();
+                                        }
+                                    }
                                     AppMode::DaemonSetList => {
                                         if let Some(daemonset) = app.get_selected_daemonset() {
                                             let daemonset_name = daemonset.name.clone();
@@ -329,38 +357,6 @@ async fn run_app(
                 Event::Resize(_, _) => {
                     // Terminal was resized, will be handled by next render
                 }
-                Event::Mouse(mouse_event) => {
-                    use crossterm::event::MouseEventKind;
-                    match mouse_event.kind {
-                        MouseEventKind::ScrollUp => {
-                            if app.mode == AppMode::Logs {
-                                app.handle_key_event(crossterm::event::KeyEvent::new(
-                                    crossterm::event::KeyCode::Char('K'),
-                                    crossterm::event::KeyModifiers::NONE,
-                                ))?;
-                            } else if app.mode == AppMode::Describe {
-                                app.handle_key_event(crossterm::event::KeyEvent::new(
-                                    crossterm::event::KeyCode::Char('K'),
-                                    crossterm::event::KeyModifiers::NONE,
-                                ))?;
-                            }
-                        }
-                        MouseEventKind::ScrollDown => {
-                            if app.mode == AppMode::Logs {
-                                app.handle_key_event(crossterm::event::KeyEvent::new(
-                                    crossterm::event::KeyCode::Char('J'),
-                                    crossterm::event::KeyModifiers::NONE,
-                                ))?;
-                            } else if app.mode == AppMode::Describe {
-                                app.handle_key_event(crossterm::event::KeyEvent::new(
-                                    crossterm::event::KeyCode::Char('J'),
-                                    crossterm::event::KeyModifiers::NONE,
-                                ))?;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
                 _ => {}
             }
         }
@@ -386,6 +382,13 @@ async fn run_app(
                     app.set_current_command(&format!("kubectl get deployments -n {}", app.current_namespace));
                     if let Ok(deployments) = client.get_deployments(&app.current_namespace).await {
                         app.deployments = deployments;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::JobList => {
+                    app.set_current_command(&format!("kubectl get jobs -n {}", app.current_namespace));
+                    if let Ok(jobs) = client.get_jobs(&app.current_namespace).await {
+                        app.jobs = jobs;
                     }
                     app.clear_current_command();
                 }
@@ -473,17 +476,21 @@ async fn execute_external_command(
 ) -> Result<()> {
     // 退出TUI模式
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
     // 执行命令
     println!("Executing: {}", command);
-    println!("Press Enter to continue...");
     
     let status = std::process::Command::new("sh")
         .arg("-c")
         .arg(command)
         .status();
+
+    let is_success = match &status {
+        Ok(exit_status) => exit_status.success(),
+        Err(_) => false,
+    };
 
     match status {
         Ok(exit_status) => {
@@ -498,13 +505,20 @@ async fn execute_external_command(
         }
     }
 
-    // 等待用户按键
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
+    // 智能处理：只有在非成功退出时才等待用户按键
+    if !is_success {
+        println!("Press Enter to continue...");
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+    } else {
+        // 成功执行后等待1秒，然后自动返回
+        println!("Returning to application in 1 second...");
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+    }
 
     // 重新进入TUI模式
     enable_raw_mode()?;
-    execute!(terminal.backend_mut(), EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(terminal.backend_mut(), EnterAlternateScreen)?;
     terminal.hide_cursor()?;
 
     Ok(())
