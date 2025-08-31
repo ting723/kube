@@ -29,13 +29,25 @@ async fn main() -> Result<()> {
     // Check if kubectl is available
     let client = KubectlClient::new();
     if !client.check_available() {
-        eprintln!("Error: kubectl is not available in PATH");
-        eprintln!("Please install kubectl and ensure it's configured to access your cluster");
+        eprintln!("Error: kubectl is not available");
+        eprintln!("Please ensure kubectl is accessible through one of the following methods:");
+        eprintln!("");
+        eprintln!("Method 1: Direct kubectl installation");
+        eprintln!("1. Install kubectl: https://kubernetes.io/docs/tasks/tools/install-kubectl/");
+        eprintln!("2. Configure kubectl: kubectl config set-context --current --namespace=default");
+        eprintln!("3. Test access: kubectl version");
+        eprintln!("");
+        eprintln!("Method 2: Using minikube (recommended for local development)");
+        eprintln!("1. Install minikube: https://minikube.sigs.k8s.io/docs/start/");
+        eprintln!("2. Start minikube: minikube start");
+        eprintln!("3. Test access: minikube kubectl -- version");
+        eprintln!("4. Optional: alias kubectl='minikube kubectl --'");
         eprintln!("");
         eprintln!("Troubleshooting tips:");
-        eprintln!("1. Check if kubectl is installed: which kubectl");
-        eprintln!("2. Test kubectl manually: kubectl version");
-        eprintln!("3. Verify cluster access: kubectl cluster-info");
+        eprintln!("- Check if kubectl is in PATH: which kubectl");
+        eprintln!("- Check if minikube is running: minikube status");
+        eprintln!("- Test kubectl manually: kubectl cluster-info");
+        eprintln!("- Test minikube kubectl: minikube kubectl -- cluster-info");
         std::process::exit(1);
     }
 

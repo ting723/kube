@@ -2,6 +2,50 @@
 
 一个类似 lazydocker 的 Kubernetes 终端工具，使用 Rust 编写。
 
+## 🎯 快速开始
+
+```bash
+# 克隆项目
+git clone <repository-url>
+cd kube
+
+# 构建项目
+./scripts/build.sh
+
+# 运行应用
+./target/release/kube-tui
+```
+
+## 📚 文档导航
+
+- 📖 **[使用指南](USAGE.md)** - 详细的使用说明和快捷键
+- 🎯 **[功能指南](docs/guides/)** - 各种功能的专项指南
+- 🧪 **[测试脚本](scripts/)** - 功能测试和验证脚本
+- 🔧 **[修复记录](docs/fixes/)** - 历史修复和优化记录
+- 📋 **[文档中心](docs/)** - 完整的文档索引
+
+## ✨ 主要特性
+
+### 🔄 智能环境支持
+- **自动检测**: 智能检测kubectl命令类型
+- **minikube兼容**: 完美支持minikube环境
+- **环境切换**: 透明的命令转换机制
+
+### 🎨 双模式交互
+- **文本选择模式**: 可以选中复制YAML/描述内容
+- **鼠标滚轮模式**: 快速滚动浏览大量内容
+- **M键切换**: 即时在两种模式间切换
+
+### 🌐 国际化支持
+- **中英文切换**: I键切换界面语言
+- **完整本地化**: 所有操作提示支持双语
+- **智能适配**: 根据内容自动调整显示
+
+### 🖱️ 现代交互体验
+- **鼠标支持**: 文字选择和滚轮操作
+- **智能滚动**: 条件性鼠标捕获机制
+- **键盘优先**: Vim风格快捷键导航
+
 ## 功能特性
 
 - 🔍 **命名空间浏览**: 快速切换和查看不同命名空间
@@ -134,7 +178,30 @@ kubectl cluster-info
 - macOS  
 - Windows
 
-## 开发
+## 🔧 测试和验证
+
+### 快速验证
+```bash
+# 综合功能测试（推荐）
+./scripts/test_optimizations.sh
+
+# minikube支持测试
+./scripts/test_minikube_support.sh
+
+# 双模式切换测试
+./scripts/test_dual_mode_switching.sh
+```
+
+### 环境检查
+```bash
+# 检查kubectl可用性
+./scripts/test_kubectl.sh
+
+# 鼠标功能调试
+./scripts/debug_mouse.sh
+```
+
+更多测试脚本请查看 [scripts/README.md](scripts/README.md)
 
 ### 项目结构
 

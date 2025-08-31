@@ -1,14 +1,14 @@
 # Makefile for Kube TUI
 
-.PHONY: build build-release clean install test lint format
+.PHONY: build build-release clean install test lint format test-all
 
 # 默认目标
 build:
-	cargo build
+	./scripts/build.sh
 
 # 构建发布版本
 build-release:
-	cargo build --release
+	./scripts/build.sh release
 
 # 清理构建产物
 clean:
@@ -24,9 +24,26 @@ install: build-release
 		echo "Please manually copy target/release/kube-tui to your PATH"; \
 	fi
 
-# 运行测试
+# 运行基础测试
 test:
 	cargo test
+
+# 运行所有功能测试
+test-all:
+	@echo "Running all functional tests..."
+	./scripts/test_optimizations.sh
+
+# 测试环境兼容性
+test-env:
+	./scripts/test_kubectl.sh
+	./scripts/test_minikube_support.sh
+
+# 测试特定功能
+test-mouse:
+	./scripts/test_conditional_mouse_capture.sh
+
+test-dual-mode:
+	./scripts/test_dual_mode_switching.sh
 
 # 代码检查
 lint:
@@ -82,7 +99,11 @@ help:
 	@echo "  build-release - Build release version"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  install       - Install to system PATH"
-	@echo "  test          - Run tests"
+	@echo "  test          - Run unit tests"
+	@echo "  test-all      - Run all functional tests"
+	@echo "  test-env      - Test environment compatibility"
+	@echo "  test-mouse    - Test mouse functionality"
+	@echo "  test-dual-mode- Test dual mode switching"
 	@echo "  lint          - Run linter"
 	@echo "  format        - Format code"
 	@echo "  format-check  - Check code formatting"
@@ -91,3 +112,8 @@ help:
 	@echo "  dev           - Run in development mode"
 	@echo "  pre-release   - Run all pre-release checks"
 	@echo "  help          - Show this help"
+	@echo ""
+	@echo "Testing scripts:"
+	@echo "  ./scripts/test_optimizations.sh      - Comprehensive feature test"
+	@echo "  ./scripts/test_minikube_support.sh   - Minikube support test"
+	@echo "  ./scripts/test_dual_mode_switching.sh - Dual mode switching test"
