@@ -202,3 +202,6 @@ pub struct ContainerMetrics {
     pub cpu_percentage: Option<f64>,
     pub memory_percentage: Option<f64>,
 }
+
+// 类型别名
+pub type PodMetrics = ResourceMetrics;

@@ -42,8 +42,8 @@ async fn main() -> Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    // 启用鼠标事件支持滚轮功能
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    // 初始不启用鼠标捕获，保持文本选中功能
+    execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -102,6 +102,26 @@ async fn load_initial_data(app: &mut AppState, client: &KubectlClient) -> Result
     Ok(())
 }
 
+// 管理鼠标捕获状态的函数
+async fn manage_mouse_capture(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    app: &mut AppState,
+) -> Result<()> {
+    let should_enable = app.should_enable_mouse_capture();
+    
+    if should_enable && !app.mouse_capture_enabled {
+        // 需要启用鼠标捕获
+        execute!(terminal.backend_mut(), EnableMouseCapture)?;
+        app.mouse_capture_enabled = true;
+    } else if !should_enable && app.mouse_capture_enabled {
+        // 需要禁用鼠标捕获
+        execute!(terminal.backend_mut(), DisableMouseCapture)?;
+        app.mouse_capture_enabled = false;
+    }
+    
+    Ok(())
+}
+
 async fn run_app(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     app: &mut AppState,
@@ -116,6 +136,9 @@ async fn run_app(
             match event {
                 Event::Key(key_event) => {
                     app.handle_key_event(key_event)?;
+                    
+                    // 管理鼠标捕获状态（在键盘事件处理后检查模式变化或M键切换）
+                    manage_mouse_capture(terminal, app).await?;
                     
                     // 处理待执行的exec命令
                     if let Some(exec_cmd) = app.pending_exec.take() {

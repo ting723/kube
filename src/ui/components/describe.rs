@@ -9,12 +9,24 @@ use ratatui::{
 use crate::app::{AppState, AppMode};
 
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
+    let mode_suffix = if !app.get_mouse_mode_text().is_empty() {
+        format!(" - {}", app.get_mouse_mode_text())
+    } else {
+        String::new()
+    };
+    
     let title = match app.previous_mode {
         AppMode::PodList => {
             if let Some(pod) = app.get_selected_pod() {
-                format!("Describe - Pod {}/{} (J/K:滚动, 鼠标滚轮:滚动, PgUp/PgDn:翻页)", app.current_namespace, pod.name)
+                let mode_hint = if app.language_chinese {
+                    "(J/K:滚动, M:切换模式, PgUp/PgDn:翻页)"
+                } else {
+                    "(J/K:scroll, M:toggle mode, PgUp/PgDn:page)"
+                };
+                format!("Describe - Pod: {}/{}{}  {}", app.current_namespace, pod.name, mode_suffix, mode_hint)
             } else {
-                "Describe - Pod".to_string()
+                let resource_type = if app.language_chinese { "Pod" } else { "Pod" };
+                format!("Describe - {}: {}", resource_type, mode_suffix)
             }
         }
         AppMode::ServiceList => {

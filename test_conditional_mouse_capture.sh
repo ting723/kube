@@ -1,0 +1,42 @@
+#!/bin/bash
+
+echo "=== 条件性鼠标捕获功能测试 ==="
+echo ""
+echo "本测试验证以下功能："
+echo ""
+echo "1. 文本选择兼容性测试："
+echo "   - 在Pod/Service列表模式下，应该可以选中并复制文本"
+echo "   - 鼠标拖拽选择应该正常工作"
+echo ""
+echo "2. 鼠标滚轮功能测试："
+echo "   - 在Describe模式下（按Space），鼠标滚轮应该可以滚动内容"
+echo "   - 在YAML模式下（按Y），鼠标滚轮应该可以滚动内容"
+echo "   - 在Logs模式下（按L），鼠标滚轮应该可以滚动内容"
+echo "   - 在TopView模式下（按T），鼠标滚轮应该可以滚动内容"
+echo ""
+echo "3. 动态切换测试："
+echo "   - 从列表模式进入Describe模式时，应该自动启用鼠标捕获"
+echo "   - 从Describe模式返回列表模式时，应该自动禁用鼠标捕获"
+echo "   - 用户无需任何手动操作，切换应该是透明的"
+echo ""
+echo "测试步骤："
+echo "1. 在Pod列表中尝试选中文本（应该可以）"
+echo "2. 选择一个Pod，按Space查看详情"
+echo "3. 在Describe模式下使用鼠标滚轮滚动（应该可以）"
+echo "4. 按Esc返回Pod列表"
+echo "5. 再次尝试选中文本（应该恢复正常）"
+echo ""
+
+read -p "按Enter键开始测试..."
+
+cd /Users/zhanglianwei/github/kube
+cargo run
+
+echo ""
+echo "=== 测试完成 ==="
+echo ""
+echo "请报告测试结果："
+echo "✓ 列表模式下可以选中复制文本？"
+echo "✓ Describe模式下鼠标滚轮可以滚动？"
+echo "✓ 模式切换是否透明无感知？"
+echo "✓ 所有功能都正常工作？"

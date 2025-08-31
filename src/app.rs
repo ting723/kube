@@ -92,8 +92,14 @@ pub struct AppState {
     // YAML查看内容
     pub yaml_content: String,
     pub yaml_scroll: usize,
+    // 鼠标捕获状态
+    pub mouse_capture_enabled: bool,
+    // 双模式切换：在YAML/Describe模式下选择文本选择模式还是滚轮模式
+    pub text_selection_mode: bool,  // true=文本选择模式, false=滚轮模式
+    // 国际化设置
+    pub language_chinese: bool,  // true=中文, false=英文
     // 资源监控数据
-    pub pod_metrics: Vec<crate::kubectl::types::ResourceMetrics>,
+    pub pod_metrics: Vec<crate::kubectl::types::PodMetrics>,
     pub metrics_scroll: usize,
 }
 
@@ -144,8 +150,16 @@ impl Default for AppState {
             logs_refresh_interval: Duration::from_secs(2),
             last_logs_refresh: Instant::now(),
             pending_exec: None,
+            // YAML查看内容
             yaml_content: String::new(),
             yaml_scroll: 0,
+            // 鼠标捕获状态
+            mouse_capture_enabled: false,
+            // 双模式切换：默认为鼠标滚动模式，方便快速浏览
+            text_selection_mode: false,
+            // 国际化设置：默认中文
+            language_chinese: true,
+            // 资源监控数据
             pod_metrics: Vec::new(),
             metrics_scroll: 0,
         }
@@ -239,9 +253,54 @@ impl AppState {
             // Tab 切换面板
             KeyCode::Tab => self.switch_panel(),
             KeyCode::BackTab => self.switch_panel_left(), // Shift+Tab 向后切换
+            // M键在YAML/Describe模式下切换鼠标模式
+            KeyCode::Char('M') | KeyCode::Char('m') => {
+                match self.mode {
+                    AppMode::Describe | AppMode::YamlView => {
+                        self.toggle_mouse_mode();
+                    }
+                    _ => {}
+                }
+            }
+            // I键切换语言（International）
+            KeyCode::Char('I') | KeyCode::Char('i') => {
+                self.toggle_language();
+            }
             _ => {}
         }
         Ok(())
+    }
+
+    // 切换鼠标模式（文本选择模式 ↔ 滚轮模式）
+    fn toggle_mouse_mode(&mut self) {
+        self.text_selection_mode = !self.text_selection_mode;
+    }
+
+    // 切换语言（中英文切换）
+    fn toggle_language(&mut self) {
+        self.language_chinese = !self.language_chinese;
+    }
+
+    // 获取当前鼠标模式的显示文本
+    pub fn get_mouse_mode_text(&self) -> &'static str {
+        match self.mode {
+            AppMode::Describe | AppMode::YamlView => {
+                if self.language_chinese {
+                    if self.text_selection_mode {
+                        "文本选择模式" // 可以选中复制文本
+                    } else {
+                        "鼠标滚轮模式" // 可以使用鼠标滚轮
+                    }
+                } else {
+                    if self.text_selection_mode {
+                        "Text Selection Mode" // Can select and copy text
+                    } else {
+                        "Mouse Scroll Mode" // Can use mouse wheel to scroll
+                    }
+                }
+            }
+            _ => "",
+        }
     }
 
     fn move_selection_up(&mut self) {
@@ -638,6 +697,8 @@ impl AppState {
                 // 清理之前的describe内容
                 self.describe_content.clear();
                 self.mode = AppMode::Describe;
+                // 默认为鼠标滚动模式，方便快速浏览内容
+                self.text_selection_mode = false;
             }
             _ => {}
         }
@@ -929,6 +990,8 @@ impl AppState {
                 self.previous_mode = self.mode.clone();
                 self.mode = AppMode::YamlView;
                 self.yaml_scroll = 0;
+                // 默认为鼠标滚动模式，方便快速浏览YAML内容
+                self.text_selection_mode = false;
                 // 在主循环中会加载相应的YAML内容
             }
             _ => {}
@@ -948,26 +1011,43 @@ impl AppState {
         }
     }
 
+    // 检查是否需要鼠标捕获（只在需要滚动的模式下且非文本选择模式下启用）
+    pub fn should_enable_mouse_capture(&self) -> bool {
+        match self.mode {
+            AppMode::Logs | AppMode::TopView => {
+                // Logs和TopView始终启用鼠标捕获，因为它们不需要复制功能
+                true
+            }
+            AppMode::Describe | AppMode::YamlView => {
+                // 在Describe和YAML模式下，只有非文本选择模式才启用鼠标捕获
+                !self.text_selection_mode
+            }
+            _ => false,
+        }
+    }
+
     // 处理鼠标事件
     pub fn handle_mouse_event(&mut self, mouse_event: MouseEvent) -> Result<()> {
-        match mouse_event.kind {
-            MouseEventKind::ScrollUp => {
-                match self.mode {
-                    AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+        // 只在需要滚动的模式下处理滚轮事件
+        match self.mode {
+            AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                match mouse_event.kind {
+                    MouseEventKind::ScrollUp => {
                         self.scroll_up();
                     }
-                    _ => {}
-                }
-            }
-            MouseEventKind::ScrollDown => {
-                match self.mode {
-                    AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                    MouseEventKind::ScrollDown => {
                         self.scroll_down();
                     }
-                    _ => {}
+                    _ => {
+                        // 其他鼠标事件（点击、拖拽等）不处理，保持文本选中功能
+                        // 这些事件会被终端正常处理
+                    }
                 }
             }
-            _ => {}
+            _ => {
+                // 在其他模式下，不处理任何鼠标事件
+                // 这样可以保持文本选中功能
+            }
         }
         Ok(())
     }
