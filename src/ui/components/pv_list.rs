@@ -59,7 +59,17 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         })
         .collect();
 
-    let table = Table::new(rows)
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(25),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+        ]
+    )
         .header(
             Row::new(vec!["Name", "Capacity", "Access Modes", "Reclaim Policy", "Status", "Claim", "Storage Class", "Age"])
                 .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -69,17 +79,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 .borders(Borders::ALL)
                 .title(format!("PersistentVolumes ({})", app.pvs.len()))
         )
-        .widths(&[
-            Constraint::Percentage(15),
-            Constraint::Percentage(10),
-            Constraint::Percentage(12),
-            Constraint::Percentage(12),
-            Constraint::Percentage(10),
-            Constraint::Percentage(18),
-            Constraint::Percentage(13),
-            Constraint::Percentage(10),
-        ])
-        .highlight_style(
+        .row_highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)

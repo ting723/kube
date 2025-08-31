@@ -19,7 +19,7 @@ pub fn render_ui(f: &mut Frame, app: &AppState) {
             Constraint::Length(3), // Footer
             Constraint::Length(1), // Command line
         ])
-        .split(f.size());
+        .split(f.area());
 
     render_header(f, chunks[0], app);
     render_main_content(f, chunks[1], app);

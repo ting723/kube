@@ -68,17 +68,19 @@ fn render_pod_metrics_table(f: &mut Frame, area: Rect, app: &AppState) {
         })
         .collect();
 
-    let table = Table::new(rows)
-        .header(header)
-        .widths(&[
+    let table = Table::new(
+        rows,
+        [
             Constraint::Length(30), // Pod名称
             Constraint::Length(10), // CPU
             Constraint::Length(10), // 内存
             Constraint::Length(8),  // CPU%
             Constraint::Length(8),  // 内存%
-        ])
-    .block(Block::default().borders(Borders::ALL).title("Pod资源使用情况"))
-    .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+        ]
+    )
+        .header(header)
+        .block(Block::default().borders(Borders::ALL).title("Pod资源使用情况"))
+        .row_highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
 
     f.render_widget(table, area);
 }
@@ -120,17 +122,19 @@ fn render_container_metrics_detail(f: &mut Frame, area: Rect, app: &AppState) {
             })
             .collect();
 
-        let table = Table::new(rows)
-            .header(header)
-            .widths(&[
+        let table = Table::new(
+            rows,
+            [
                 Constraint::Length(30), // 容器名称
                 Constraint::Length(10), // CPU
                 Constraint::Length(10), // 内存
                 Constraint::Length(8),  // CPU%
                 Constraint::Length(8),  // 内存%
-            ])
-        .block(Block::default().borders(Borders::ALL).title(format!("Pod: {} - 容器详情", metrics.name)))
-        .highlight_style(Style::default().fg(Color::Cyan));
+            ]
+        )
+            .header(header)
+            .block(Block::default().borders(Borders::ALL).title(format!("Pod: {} - 容器详情", metrics.name)))
+            .row_highlight_style(Style::default().fg(Color::Cyan));
 
         f.render_widget(table, area);
     } else {

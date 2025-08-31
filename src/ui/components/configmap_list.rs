@@ -42,7 +42,14 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         })
         .collect();
 
-    let table = Table::new(rows)
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(60),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+        ]
+    )
         .header(
             Row::new(vec!["Name", "Data", "Age"])
                 .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -52,12 +59,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 .borders(Borders::ALL)
                 .title(format!("ConfigMaps in namespace: {} ({})", app.current_namespace, app.configmaps.len()))
         )
-        .widths(&[
-            Constraint::Percentage(60),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-        ])
-        .highlight_style(
+        .row_highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)

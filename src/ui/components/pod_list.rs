@@ -59,7 +59,17 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         })
         .collect();
 
-    let table = Table::new(rows)
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(30),
+            Constraint::Percentage(10),
+            Constraint::Percentage(15),
+            Constraint::Percentage(10),
+            Constraint::Percentage(10),
+            Constraint::Percentage(25),
+        ]
+    )
         .header(
             Row::new(vec!["Name", "Ready", "Status", "Restarts", "Age", "Node"])
                 .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -69,15 +79,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 .borders(Borders::ALL)
                 .title(format!("Pods in namespace: {} ({})", app.current_namespace, app.pods.len()))
         )
-        .widths(&[
-            Constraint::Percentage(30),
-            Constraint::Percentage(10),
-            Constraint::Percentage(15),
-            Constraint::Percentage(10),
-            Constraint::Percentage(10),
-            Constraint::Percentage(25),
-        ])
-        .highlight_style(
+        .row_highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)

@@ -46,7 +46,18 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         })
         .collect();
 
-    let table = Table::new(rows)
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(25),
+            Constraint::Percentage(10),
+            Constraint::Percentage(10),
+            Constraint::Percentage(10),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+        ]
+    )
         .header(
             Row::new(vec!["Name", "Desired", "Current", "Ready", "Up-to-date", "Available", "Age"])
                 .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -56,16 +67,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 .borders(Borders::ALL)
                 .title(format!("DaemonSets ({})", app.daemonsets.len()))
         )
-        .widths(&[
-            Constraint::Percentage(25),
-            Constraint::Percentage(10),
-            Constraint::Percentage(10),
-            Constraint::Percentage(10),
-            Constraint::Percentage(15),
-            Constraint::Percentage(15),
-            Constraint::Percentage(15),
-        ])
-        .highlight_style(
+        .row_highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)

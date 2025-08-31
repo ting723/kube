@@ -152,7 +152,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             .end_symbol(Some("↓"));
         f.render_stateful_widget(
             scrollbar,
-            area.inner(&ratatui::layout::Margin { vertical: 1, horizontal: 0 }),
+            area.inner(ratatui::layout::Margin { vertical: 1, horizontal: 0 }),
             &mut state,
         );
     }

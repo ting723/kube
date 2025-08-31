@@ -59,7 +59,16 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         })
         .collect();
 
-    let table = Table::new(rows)
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(30),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+            Constraint::Percentage(25),
+        ]
+    )
         .header(
             Row::new(vec!["Name", "Completions", "Duration", "Status", "Age"])
                 .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -69,14 +78,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 .borders(Borders::ALL)
                 .title(format!("Jobs ({})", app.jobs.len()))
         )
-        .widths(&[
-            Constraint::Percentage(30),
-            Constraint::Percentage(15),
-            Constraint::Percentage(15),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-        ])
-        .highlight_style(
+        .row_highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)

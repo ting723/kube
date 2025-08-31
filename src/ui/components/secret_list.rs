@@ -43,7 +43,15 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         })
         .collect();
 
-    let table = Table::new(rows)
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(40),
+            Constraint::Percentage(30),
+            Constraint::Percentage(15),
+            Constraint::Percentage(15),
+        ]
+    )
         .header(
             Row::new(vec!["Name", "Type", "Data", "Age"])
                 .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -53,13 +61,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 .borders(Borders::ALL)
                 .title(format!("Secrets in namespace: {} ({})", app.current_namespace, app.secrets.len()))
         )
-        .widths(&[
-            Constraint::Percentage(40),
-            Constraint::Percentage(30),
-            Constraint::Percentage(15),
-            Constraint::Percentage(15),
-        ])
-        .highlight_style(
+        .row_highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)

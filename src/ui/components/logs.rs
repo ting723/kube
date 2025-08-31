@@ -75,7 +75,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         
         f.render_stateful_widget(
             scrollbar,
-            area.inner(&ratatui::layout::Margin { vertical: 1, horizontal: 0 }),
+            area.inner(ratatui::layout::Margin { vertical: 1, horizontal: 0 }),
             &mut scrollbar_state,
         );
     }
