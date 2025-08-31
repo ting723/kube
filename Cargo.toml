@@ -16,3 +16,10 @@ anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 color-eyre = "0.6"
+
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+opt-level = 'z'  # Optimize for size.
+lto = true
+codegen-units = 1
+
