@@ -216,14 +216,27 @@ impl AppState {
                     _ => {}
                 }
             }
-            // Vim 风格导航
-            KeyCode::Char('j') | KeyCode::Down => self.move_selection_down(),
-            KeyCode::Char('k') | KeyCode::Up => self.move_selection_up(),
+            // 滚动操作（仅在 Logs、Describe、YamlView 和 TopView 模式下）
+            KeyCode::Char('j') => {
+                match self.mode {
+                    AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                        self.scroll_down();
+                    }
+                    _ => self.move_selection_down(), // 在列表模式下正常导航
+                }
+            }
+            KeyCode::Char('k') => {
+                match self.mode {
+                    AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                        self.scroll_up();
+                    }
+                    _ => self.move_selection_up(), // 在列表模式下正常导航
+                }
+            }
+            KeyCode::Down => self.move_selection_down(),
+            KeyCode::Up => self.move_selection_up(),
             KeyCode::Char('h') | KeyCode::Left => self.handle_left_navigation(),
             KeyCode::Char('l') | KeyCode::Right => self.handle_right_navigation(),
-            // 滚动操作（仅在 Logs、Describe、YamlView 和 TopView 模式下）
-            KeyCode::Char('J') => self.scroll_down(),
-            KeyCode::Char('K') => self.scroll_up(),
             KeyCode::PageDown => self.scroll_page_down(),
             KeyCode::PageUp => self.scroll_page_up(),
             // 资源操作
@@ -761,7 +774,7 @@ impl AppState {
     fn start_search(&mut self) {
         // 只在列表模式下才能搜索
         match self.mode {
-            AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
+            AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
             | AppMode::DeploymentList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
             | AppMode::ConfigMapList | AppMode::SecretList => {
                 self.previous_mode = self.mode.clone();
@@ -794,6 +807,7 @@ impl AppState {
     fn jump_to_search_result(&mut self) {
         if let Some(&index) = self.search_results.get(self.current_search_index) {
             match self.previous_mode {
+                AppMode::NamespaceList => self.selected_namespace_index = index,
                 AppMode::PodList => self.selected_pod_index = index,
                 AppMode::ServiceList => self.selected_service_index = index,
                 AppMode::NodeList => self.selected_node_index = index,
@@ -841,14 +855,8 @@ impl AppState {
                 // 在搜索结果中向上导航
                 self.search_previous();
             }
-            KeyCode::Char('j') => {
-                // 在搜索结果中向下导航
-                self.search_next();
-            }
-            KeyCode::Char('k') => {
-                // 在搜索结果中向上导航
-                self.search_previous();
-            }
+            // 移除j/k的特殊处理，让它们可以正常输入到搜索框
+            // 用户可以使用方向键或Tab来导航搜索结果
             KeyCode::Char(c) => {
                 self.search_query.push(c);
                 // 实时搜索
@@ -869,6 +877,13 @@ impl AppState {
         }
 
         match self.previous_mode {
+            AppMode::NamespaceList => {
+                for (index, namespace) in self.namespaces.iter().enumerate() {
+                    if namespace.to_lowercase().contains(&query) {
+                        self.search_results.push(index);
+                    }
+                }
+            }
             AppMode::PodList => {
                 for (index, pod) in self.pods.iter().enumerate() {
                     if pod.name.to_lowercase().contains(&query) {

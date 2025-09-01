@@ -122,7 +122,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
     let help_text = if app.language_chinese {
         // 中文提示
         match app.mode {
-            AppMode::NamespaceList => "j/k ↑↓ 导航 • Enter 选择 • h/l ←→ 切换 • Tab/Shift+Tab 标签页 • I 切换语言 • q 退出 • ? 帮助",
+            AppMode::NamespaceList => "j/k ↑↓ 导航 • Enter 选择 • h/l ←→ 切换 • Tab/Shift+Tab 标签页 • / 搜索 • I 切换语言 • q 退出 • ? 帮助",
             AppMode::PodList => "j/k 导航 • Space 详情 • Y YAML • T 监控 • L 日志 • D 删除 • E 进入 • / 搜索 • I 切换语言 • q 退出",
             AppMode::ServiceList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出",
             AppMode::NodeList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出",
@@ -133,22 +133,22 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::PVList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出",
             AppMode::ConfigMapList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出",
             AppMode::SecretList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出",
-            AppMode::Logs => "J/K 滚动 • PgUp/PgDn 翻页 • A 切换自动滚动 • R 切换自动刷新 • I 切换语言 • Esc 返回 • q 退出",
+            AppMode::Logs => "j/k 滚动 • PgUp/PgDn 翻页 • A 切换自动滚动 • R 切换自动刷新 • I 切换语言 • Esc 返回 • q 退出",
             AppMode::Describe => {
                 if app.text_selection_mode {
-                    "J/K 滚动 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
+                    "j/k 滚动 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
                 } else {
-                    "J/K 滚动 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
+                    "j/k 滚动 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
                 }
             },
             AppMode::YamlView => {
                 if app.text_selection_mode {
-                    "J/K 滚动 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
+                    "j/k 滚动 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
                 } else {
-                    "J/K 滚动 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
+                    "j/k 滚动 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
                 }
             },
-            AppMode::TopView => "J/K 滚动 • PgUp/PgDn 翻页 • I 切换语言 • Esc 返回 • q 退出",
+            AppMode::TopView => "j/k 滚动 • PgUp/PgDn 翻页 • I 切换语言 • Esc 返回 • q 退出",
             AppMode::Search => "输入搜索内容 • Enter 选择 • I 切换语言 • Esc 取消",
             AppMode::Confirm => "y/Y 确认 • n/N/Esc 取消",
             AppMode::Help => "I 切换语言 • Esc 返回 • q 退出",
@@ -156,7 +156,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
     } else {
         // English prompts
         match app.mode {
-            AppMode::NamespaceList => "j/k ↑↓ Navigate • Enter Select • h/l ←→ Switch • Tab/Shift+Tab Tabs • I Language • q Quit • ? Help",
+            AppMode::NamespaceList => "j/k ↑↓ Navigate • Enter Select • h/l ←→ Switch • Tab/Shift+Tab Tabs • / Search • I Language • q Quit • ? Help",
             AppMode::PodList => "j/k Navigate • Space Describe • Y YAML • T Top • L Logs • D Delete • E Exec • / Search • I Language • q Quit",
             AppMode::ServiceList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit",
             AppMode::NodeList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit",
@@ -167,22 +167,22 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::PVList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit",
             AppMode::ConfigMapList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit",
             AppMode::SecretList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit",
-            AppMode::Logs => "J/K Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • R Toggle Auto-refresh • I Language • Esc Back • q Quit",
+            AppMode::Logs => "j/k Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • R Toggle Auto-refresh • I Language • Esc Back • q Quit",
             AppMode::Describe => {
                 if app.text_selection_mode {
-                    "J/K Scroll • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
+                    "j/k Scroll • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
                 } else {
-                    "J/K Scroll • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
+                    "j/k Scroll • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
                 }
             },
             AppMode::YamlView => {
                 if app.text_selection_mode {
-                    "J/K Scroll • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
+                    "j/k Scroll • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
                 } else {
-                    "J/K Scroll • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
+                    "j/k Scroll • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
                 }
             },
-            AppMode::TopView => "J/K Scroll • PgUp/PgDn Page • I Language • Esc Back • q Quit",
+            AppMode::TopView => "j/k Scroll • PgUp/PgDn Page • I Language • Esc Back • q Quit",
             AppMode::Search => "Type to search • Enter Select • I Language • Esc Cancel",
             AppMode::Confirm => "y/Y Confirm • n/N/Esc Cancel",
             AppMode::Help => "I Language • Esc Back • q Quit",

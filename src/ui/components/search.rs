@@ -24,7 +24,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     };
     
     let search_input = Paragraph::new(input_text)
-        .block(Block::default().borders(Borders::ALL).title("Search (type to search, j/k to navigate, Enter to select, Esc to cancel)"))
+        .block(Block::default().borders(Borders::ALL).title("Search (type to search, ↑↓ to navigate, Enter to select, Esc to cancel)"))
         .style(Style::default().fg(Color::White));
 
     f.render_widget(search_input, chunks[0]);
@@ -45,6 +45,25 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     } else {
         // 根据搜索结果显示对应的资源列表
         let items: Vec<ListItem> = match app.previous_mode {
+            AppMode::NamespaceList => {
+                app.search_results.iter().map(|&index| {
+                    if let Some(namespace) = app.namespaces.get(index) {
+                        let style = if index == app.selected_namespace_index {
+                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(Color::White)
+                        };
+                        let prefix = if namespace == &app.current_namespace {
+                            "● "
+                        } else {
+                            "  "
+                        };
+                        ListItem::new(format!("{}{}", prefix, namespace)).style(style)
+                    } else {
+                        ListItem::new("Invalid index").style(Style::default().fg(Color::Red))
+                    }
+                }).collect()
+            }
             AppMode::PodList => {
                 app.search_results.iter().map(|&index| {
                     if let Some(pod) = app.pods.get(index) {
@@ -194,6 +213,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         if !app.search_results.is_empty() {
             if let Some(pos) = app.search_results.iter().position(|&idx| {
                 match app.previous_mode {
+                    AppMode::NamespaceList => idx == app.selected_namespace_index,
                     AppMode::PodList => idx == app.selected_pod_index,
                     AppMode::ServiceList => idx == app.selected_service_index,
                     AppMode::DeploymentList => idx == app.selected_deployment_index,

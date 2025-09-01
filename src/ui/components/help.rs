@@ -58,6 +58,7 @@ RESOURCE MONITORING / 资源监控:
 SEARCH / 搜索:
   /                Start search / 开始搜索
   Type query       Enter search terms / 输入搜索内容
+  ↑/↓              Navigate search results / 导航搜索结果
   Enter            Confirm search / 确认搜索
   n/N              Next/Previous result / 下一个/上一个结果
   Esc              Cancel search / 取消搜索
