@@ -19,9 +19,9 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::PodList => {
             if let Some(pod) = app.get_selected_pod() {
                 let mode_hint = if app.language_chinese {
-                    "(J/K:滚动, M:切换模式, PgUp/PgDn:翻页)"
+                    "(j/k:滚动, M:切换模式, PgUp/PgDn:翻页)"
                 } else {
-                    "(J/K:scroll, M:toggle mode, PgUp/PgDn:page)"
+                    "(j/k:scroll, M:toggle mode, PgUp/PgDn:page)"
                 };
                 format!("YAML配置 - Pod: {}/{}{}  {}", app.current_namespace, pod.name, mode_suffix, mode_hint)
             } else {
@@ -32,9 +32,9 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::ServiceList => {
             if let Some(service) = app.get_selected_service() {
                 let mode_hint = if app.language_chinese {
-                    "(J/K:滚动, M:切换模式, PgUp/PgDn:翻页)"
+                    "(j/k:滚动, M:切换模式, PgUp/PgDn:翻页)"
                 } else {
-                    "(J/K:scroll, M:toggle mode, PgUp/PgDn:page)"
+                    "(j/k:scroll, M:toggle mode, PgUp/PgDn:page)"
                 };
                 format!("YAML配置 - Service: {}/{}{}  {}", app.current_namespace, service.name, mode_suffix, mode_hint)
             } else {
@@ -44,56 +44,56 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         }
         AppMode::DeploymentList => {
             if let Some(deployment) = app.get_selected_deployment() {
-                format!("YAML配置 - Deployment {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, deployment.name)
+                format!("YAML配置 - Deployment {}/{} (j/k:滚动, PgUp/PgDn:翻页)", app.current_namespace, deployment.name)
             } else {
                 "YAML配置 - Deployment".to_string()
             }
         }
         AppMode::JobList => {
             if let Some(job) = app.get_selected_job() {
-                format!("YAML配置 - Job {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, job.name)
+                format!("YAML配置 - Job {}/{} (j/k:滚动, PgUp/PgDn:翻页)", app.current_namespace, job.name)
             } else {
                 "YAML配置 - Job".to_string()
             }
         }
         AppMode::DaemonSetList => {
             if let Some(daemonset) = app.get_selected_daemonset() {
-                format!("YAML配置 - DaemonSet {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, daemonset.name)
+                format!("YAML配置 - DaemonSet {}/{} (j/k:滚动, PgUp/PgDn:翻页)", app.current_namespace, daemonset.name)
             } else {
                 "YAML配置 - DaemonSet".to_string()
             }
         }
         AppMode::NodeList => {
             if let Some(node) = app.get_selected_node() {
-                format!("YAML配置 - Node {} (J/K:滚动, PgUp/PgDn:翻页)", node.name)
+                format!("YAML配置 - Node {} (j/k:滚动, PgUp/PgDn:翻页)", node.name)
             } else {
                 "YAML配置 - Node".to_string()
             }
         }
         AppMode::ConfigMapList => {
             if let Some(configmap) = app.get_selected_configmap() {
-                format!("YAML配置 - ConfigMap {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, configmap.name)
+                format!("YAML配置 - ConfigMap {}/{} (j/k:滚动, PgUp/PgDn:翻页)", app.current_namespace, configmap.name)
             } else {
                 "YAML配置 - ConfigMap".to_string()
             }
         }
         AppMode::SecretList => {
             if let Some(secret) = app.get_selected_secret() {
-                format!("YAML配置 - Secret {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, secret.name)
+                format!("YAML配置 - Secret {}/{} (j/k:滚动, PgUp/PgDn:翻页)", app.current_namespace, secret.name)
             } else {
                 "YAML配置 - Secret".to_string()
             }
         }
         AppMode::PVCList => {
             if let Some(pvc) = app.get_selected_pvc() {
-                format!("YAML配置 - PVC {}/{} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace, pvc.name)
+                format!("YAML配置 - PVC {}/{} (j/k:滚动, PgUp/PgDn:翻页)", app.current_namespace, pvc.name)
             } else {
                 "YAML配置 - PVC".to_string()
             }
         }
         AppMode::PVList => {
             if let Some(pv) = app.get_selected_pv() {
-                format!("YAML配置 - PV {} (J/K:滚动, PgUp/PgDn:翻页)", pv.name)
+                format!("YAML配置 - PV {} (j/k:滚动, PgUp/PgDn:翻页)", pv.name)
             } else {
                 "YAML配置 - PV".to_string()
             }

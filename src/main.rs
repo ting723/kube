@@ -187,6 +187,19 @@ async fn run_app(
                     
                     // Handle mode changes that require data loading
                     match app.mode {
+                        AppMode::NamespaceList => {
+                            if app.namespaces.is_empty() || app.should_refresh() {
+                                app.set_current_command("kubectl get namespaces");
+                                if let Ok(namespaces) = client.get_namespaces().await {
+                                    app.namespaces = namespaces.into_iter().map(|ns| ns.name).collect();
+                                    if !app.namespaces.is_empty() && app.current_namespace.is_empty() {
+                                        app.current_namespace = app.namespaces[0].clone();
+                                    }
+                                    app.refresh_data();
+                                }
+                                app.clear_current_command();
+                            }
+                        }
                         AppMode::PodList => {
                             if app.pods.is_empty() || app.should_refresh() {
                                 if let Ok(pods) = client.get_pods(&app.current_namespace).await {
@@ -457,8 +470,18 @@ async fn run_app(
         // Auto-refresh data
         if app.should_refresh() {
             match app.mode {
+                AppMode::NamespaceList => {
+                    app.set_current_command("kubectl get namespaces (auto-refresh)");
+                    if let Ok(namespaces) = client.get_namespaces().await {
+                        app.namespaces = namespaces.into_iter().map(|ns| ns.name).collect();
+                        if !app.namespaces.is_empty() && app.current_namespace.is_empty() {
+                            app.current_namespace = app.namespaces[0].clone();
+                        }
+                    }
+                    app.clear_current_command();
+                }
                 AppMode::PodList => {
-                    app.set_current_command(&format!("kubectl get pods -n {}", app.current_namespace));
+                    app.set_current_command(&format!("kubectl get pods -n {} (auto-refresh)", app.current_namespace));
                     if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                         app.pods = pods;
                     }
@@ -552,6 +575,189 @@ async fn run_app(
                 app.clear_current_command();
             }
             app.refresh_logs();
+        }
+
+        // Auto-refresh describe content if needed
+        if app.should_refresh_describe() {
+            match app.previous_mode {
+                AppMode::PodList => {
+                    if let Some(pod) = app.get_selected_pod() {
+                        let pod_name = pod.name.clone();
+                        let namespace = app.current_namespace.clone();
+                        app.set_current_command(&format!("kubectl describe pod -n {} {} (auto-refresh)", namespace, pod_name));
+                        if let Ok(description) = client.describe_pod(&namespace, &pod_name).await {
+                            app.describe_content = description;
+                        }
+                        app.clear_current_command();
+                    }
+                }
+                AppMode::ServiceList => {
+                    if let Some(service) = app.get_selected_service() {
+                        let service_name = service.name.clone();
+                        let namespace = app.current_namespace.clone();
+                        app.set_current_command(&format!("kubectl describe service -n {} {} (auto-refresh)", namespace, service_name));
+                        if let Ok(description) = client.describe_service(&namespace, &service_name).await {
+                            app.describe_content = description;
+                        }
+                        app.clear_current_command();
+                    }
+                }
+                AppMode::DeploymentList => {
+                    if let Some(deployment) = app.get_selected_deployment() {
+                        let deployment_name = deployment.name.clone();
+                        let namespace = app.current_namespace.clone();
+                        app.set_current_command(&format!("kubectl describe deployment -n {} {} (auto-refresh)", namespace, deployment_name));
+                        if let Ok(description) = client.describe_deployment(&namespace, &deployment_name).await {
+                            app.describe_content = description;
+                        }
+                        app.clear_current_command();
+                    }
+                }
+                AppMode::NodeList => {
+                    if let Some(node) = app.get_selected_node() {
+                        let node_name = node.name.clone();
+                        app.set_current_command(&format!("kubectl describe node {} (auto-refresh)", node_name));
+                        if let Ok(description) = client.describe_node(&node_name).await {
+                            app.describe_content = description;
+                        }
+                        app.clear_current_command();
+                    }
+                }
+                _ => {}
+            }
+            app.refresh_describe();
+        }
+
+        // Auto-refresh YAML content if needed
+        if app.should_refresh_yaml() {
+            match app.previous_mode {
+                AppMode::PodList => {
+                    if let Some(pod) = app.get_selected_pod() {
+                        let pod_name = pod.name.clone();
+                        let namespace = app.current_namespace.clone();
+                        app.set_current_command(&format!("kubectl get pod -n {} {} -o yaml (auto-refresh)", namespace, pod_name));
+                        if let Ok(yaml) = client.get_yaml("pod", Some(&namespace), &pod_name).await {
+                            app.yaml_content = yaml;
+                        }
+                        app.clear_current_command();
+                    }
+                }
+                AppMode::ServiceList => {
+                    if let Some(service) = app.get_selected_service() {
+                        let service_name = service.name.clone();
+                        let namespace = app.current_namespace.clone();
+                        app.set_current_command(&format!("kubectl get service -n {} {} -o yaml (auto-refresh)", namespace, service_name));
+                        if let Ok(yaml) = client.get_yaml("service", Some(&namespace), &service_name).await {
+                            app.yaml_content = yaml;
+                        }
+                        app.clear_current_command();
+                    }
+                }
+                AppMode::NodeList => {
+                    if let Some(node) = app.get_selected_node() {
+                        let node_name = node.name.clone();
+                        app.set_current_command(&format!("kubectl get node {} -o yaml (auto-refresh)", node_name));
+                        if let Ok(yaml) = client.get_yaml("node", None, &node_name).await {
+                            app.yaml_content = yaml;
+                        }
+                        app.clear_current_command();
+                    }
+                }
+                _ => {}
+            }
+            app.refresh_yaml();
+        }
+
+        // Handle manual refresh requests (triggered by R key in non-special modes)
+        if matches!(app.mode, AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | 
+            AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | 
+            AppMode::PVList | AppMode::ConfigMapList | AppMode::SecretList | AppMode::NodeList) 
+            && app.last_update.elapsed() < Duration::from_millis(100) {
+            // This is a recent manual refresh request, execute it
+            match app.mode {
+                AppMode::NamespaceList => {
+                    app.set_current_command("kubectl get namespaces (manual-refresh)");
+                    if let Ok(namespaces) = client.get_namespaces().await {
+                        app.namespaces = namespaces.into_iter().map(|ns| ns.name).collect();
+                        if !app.namespaces.is_empty() && app.current_namespace.is_empty() {
+                            app.current_namespace = app.namespaces[0].clone();
+                        }
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::PodList => {
+                    app.set_current_command(&format!("kubectl get pods -n {} (manual-refresh)", app.current_namespace));
+                    if let Ok(pods) = client.get_pods(&app.current_namespace).await {
+                        app.pods = pods;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::ServiceList => {
+                    app.set_current_command(&format!("kubectl get services -n {} (manual-refresh)", app.current_namespace));
+                    if let Ok(services) = client.get_services(&app.current_namespace).await {
+                        app.services = services;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::DeploymentList => {
+                    app.set_current_command(&format!("kubectl get deployments -n {} (manual-refresh)", app.current_namespace));
+                    if let Ok(deployments) = client.get_deployments(&app.current_namespace).await {
+                        app.deployments = deployments;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::JobList => {
+                    app.set_current_command(&format!("kubectl get jobs -n {} (manual-refresh)", app.current_namespace));
+                    if let Ok(jobs) = client.get_jobs(&app.current_namespace).await {
+                        app.jobs = jobs;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::DaemonSetList => {
+                    app.set_current_command(&format!("kubectl get daemonsets -n {} (manual-refresh)", app.current_namespace));
+                    if let Ok(daemonsets) = client.get_daemonsets(&app.current_namespace).await {
+                        app.daemonsets = daemonsets;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::PVCList => {
+                    app.set_current_command(&format!("kubectl get pvc -n {} (manual-refresh)", app.current_namespace));
+                    if let Ok(pvcs) = client.get_pvcs(&app.current_namespace).await {
+                        app.pvcs = pvcs;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::PVList => {
+                    app.set_current_command("kubectl get pv (manual-refresh)");
+                    if let Ok(pvs) = client.get_pvs().await {
+                        app.pvs = pvs;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::ConfigMapList => {
+                    app.set_current_command(&format!("kubectl get configmaps -n {} (manual-refresh)", app.current_namespace));
+                    if let Ok(configmaps) = client.get_configmaps(&app.current_namespace).await {
+                        app.configmaps = configmaps;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::SecretList => {
+                    app.set_current_command(&format!("kubectl get secrets -n {} (manual-refresh)", app.current_namespace));
+                    if let Ok(secrets) = client.get_secrets(&app.current_namespace).await {
+                        app.secrets = secrets;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::NodeList => {
+                    app.set_current_command("kubectl get nodes (manual-refresh)");
+                    if let Ok(nodes) = client.get_nodes().await {
+                        app.nodes = nodes;
+                    }
+                    app.clear_current_command();
+                }
+                _ => {}
+            }
+            app.refresh_data();
         }
 
         if app.should_quit {

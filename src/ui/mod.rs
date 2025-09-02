@@ -136,16 +136,16 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::Logs => "j/k 滚动 • PgUp/PgDn 翻页 • A 切换自动滚动 • R 切换自动刷新 • I 切换语言 • Esc 返回 • q 退出",
             AppMode::Describe => {
                 if app.text_selection_mode {
-                    "j/k 滚动 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
+                    "j/k 滚动 • R 切换自动刷新 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
                 } else {
-                    "j/k 滚动 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
+                    "j/k 滚动 • R 切换自动刷新 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
                 }
             },
             AppMode::YamlView => {
                 if app.text_selection_mode {
-                    "j/k 滚动 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
+                    "j/k 滚动 • R 切换自动刷新 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
                 } else {
-                    "j/k 滚动 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
+                    "j/k 滚动 • R 切换自动刷新 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
                 }
             },
             AppMode::TopView => "j/k 滚动 • PgUp/PgDn 翻页 • I 切换语言 • Esc 返回 • q 退出",
@@ -170,16 +170,16 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::Logs => "j/k Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • R Toggle Auto-refresh • I Language • Esc Back • q Quit",
             AppMode::Describe => {
                 if app.text_selection_mode {
-                    "j/k Scroll • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
+                    "j/k Scroll • R Toggle Auto-refresh • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
                 } else {
-                    "j/k Scroll • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
+                    "j/k Scroll • R Toggle Auto-refresh • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
                 }
             },
             AppMode::YamlView => {
                 if app.text_selection_mode {
-                    "j/k Scroll • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
+                    "j/k Scroll • R Toggle Auto-refresh • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
                 } else {
-                    "j/k Scroll • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
+                    "j/k Scroll • R Toggle Auto-refresh • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
                 }
             },
             AppMode::TopView => "j/k Scroll • PgUp/PgDn Page • I Language • Esc Back • q Quit",
@@ -223,73 +223,73 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
                 match app.previous_mode {
                     AppMode::PodList => {
                         if let Some(pod) = app.get_selected_pod() {
-                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe pod -n {} {}", app.current_namespace, pod.name)
+                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe pod -n {} {}", app.current_namespace, pod.name)
                         } else {
                             "Describe Mode - No pod selected".to_string()
                         }
                     },
                     AppMode::ServiceList => {
                         if let Some(service) = app.get_selected_service() {
-                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe service -n {} {}", app.current_namespace, service.name)
+                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe service -n {} {}", app.current_namespace, service.name)
                         } else {
                             "Describe Mode - No service selected".to_string()
                         }
                     },
                     AppMode::DeploymentList => {
                         if let Some(deployment) = app.get_selected_deployment() {
-                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe deployment -n {} {}", app.current_namespace, deployment.name)
+                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe deployment -n {} {}", app.current_namespace, deployment.name)
                         } else {
                             "Describe Mode - No deployment selected".to_string()
                         }
                     },
                     AppMode::JobList => {
                         if let Some(job) = app.get_selected_job() {
-                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe job -n {} {}", app.current_namespace, job.name)
+                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe job -n {} {}", app.current_namespace, job.name)
                         } else {
                             "Describe Mode - No job selected".to_string()
                         }
                     },
                     AppMode::NodeList => {
                         if let Some(node) = app.get_selected_node() {
-                            format!("Describe Mode - J/K (scroll), Esc (back) - kubectl describe node {}", node.name)
+                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe node {}", node.name)
                         } else {
                             "Describe Mode - No node selected".to_string()
                         }
                     },
-                    _ => "Describe Mode - J/K (scroll), Esc (back)".to_string(),
+                    _ => "Describe Mode - J/K (scroll), R (auto-refresh), Esc (back)".to_string(),
                 }
             },
             AppMode::YamlView => {
                 match app.previous_mode {
                     AppMode::PodList => {
                         if let Some(pod) = app.get_selected_pod() {
-                            format!("YAML View Mode - J/K (scroll), Esc (back) - kubectl get pod -n {} {} -o yaml", app.current_namespace, pod.name)
+                            format!("YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl get pod -n {} {} -o yaml", app.current_namespace, pod.name)
                         } else {
                             "YAML View Mode - No pod selected".to_string()
                         }
                     },
                     AppMode::ServiceList => {
                         if let Some(service) = app.get_selected_service() {
-                            format!("YAML View Mode - J/K (scroll), Esc (back) - kubectl get service -n {} {} -o yaml", app.current_namespace, service.name)
+                            format!("YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl get service -n {} {} -o yaml", app.current_namespace, service.name)
                         } else {
                             "YAML View Mode - No service selected".to_string()
                         }
                     },
                     AppMode::DeploymentList => {
                         if let Some(deployment) = app.get_selected_deployment() {
-                            format!("YAML View Mode - J/K (scroll), Esc (back) - kubectl get deployment -n {} {} -o yaml", app.current_namespace, deployment.name)
+                            format!("YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl get deployment -n {} {} -o yaml", app.current_namespace, deployment.name)
                         } else {
                             "YAML View Mode - No deployment selected".to_string()
                         }
                     },
                     AppMode::NodeList => {
                         if let Some(node) = app.get_selected_node() {
-                            format!("YAML View Mode - J/K (scroll), Esc (back) - kubectl get node {} -o yaml", node.name)
+                            format!("YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl get node {} -o yaml", node.name)
                         } else {
                             "YAML View Mode - No node selected".to_string()
                         }
                     },
-                    _ => "YAML View Mode - J/K (scroll), Esc (back)".to_string(),
+                    _ => "YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back)".to_string(),
                 }
             },
             AppMode::TopView => {
@@ -302,7 +302,14 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
         }
     };
 
-    let command_line = Paragraph::new(command_text)
+    // 添加刷新状态显示
+    let status_text = if !app.refresh_status_text.is_empty() {
+        format!("{} {}", command_text, app.refresh_status_text)
+    } else {
+        command_text
+    };
+
+    let command_line = Paragraph::new(status_text)
         .style(Style::default().fg(Color::Cyan));
 
     f.render_widget(command_line, area);

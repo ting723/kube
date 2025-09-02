@@ -9,7 +9,7 @@ use ratatui::{
 use crate::app::AppState;
 
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
-    let title = format!("资源使用情况 - {} (J/K:滚动, PgUp/PgDn:翻页)", app.current_namespace);
+    let title = format!("资源使用情况 - {} (j/k:滚动, PgUp/PgDn:翻页)", app.current_namespace);
 
     if app.pod_metrics.is_empty() {
         let no_content = ratatui::widgets::Paragraph::new("正在加载资源使用情况...\n\n注意: 需要安装metrics-server才能查看资源使用情况")

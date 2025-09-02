@@ -1,7 +1,7 @@
 use ratatui::{
     layout::Rect,
     style::{Color, Style},
-    widgets::{Block, Borders, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Borders, Scrollbar, ScrollbarOrientation, ScrollbarState, Paragraph, Wrap},
     Frame,
 };
 
@@ -10,7 +10,7 @@ use crate::app::AppState;
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let title = if let Some(pod) = app.get_selected_pod() {
         format!(
-            "Logs - {}/{} (J/K:scroll, PgUp/PgDn:page, A:auto-scroll:{}, R:auto-refresh:{})", 
+            "Logs - {}/{} (j/k:scroll, PgUp/PgDn:page, A:auto-scroll:{}, R:auto-refresh:{})", 
             app.current_namespace, 
             pod.name,
             if app.logs_auto_scroll { "ON" } else { "OFF" },
@@ -29,44 +29,32 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         return;
     }
 
-    // 计算可见区域的高度（减去边框）
-    let visible_height = area.height.saturating_sub(2) as usize;
-    let total_lines = app.logs.len();
-    
-    // 自动滚动到底部或使用手动滚动位置
-    let start_index = if app.logs_auto_scroll && total_lines > visible_height {
-        total_lines - visible_height
-    } else {
-        app.logs_scroll.min(total_lines.saturating_sub(visible_height))
-    };
-    
-    let end_index = (start_index + visible_height).min(total_lines);
-    
-    // 创建可见的日志项
-    let visible_logs: Vec<ListItem> = app.logs[start_index..end_index]
+    // 将日志内容连接成一个字符串，支持换行显示
+    let log_content = app.logs
         .iter()
         .enumerate()
-        .map(|(i, line)| {
-            let line_number = start_index + i + 1;
-            ListItem::new(format!("[{}] {}", line_number, line))
-        })
-        .collect();
+        .map(|(i, line)| format!("[{}] {}", i + 1, line))
+        .collect::<Vec<String>>()
+        .join("\n");
 
-    let mut list_state = ListState::default();
-    // 不需要选中任何项，因为这是日志显示
-    
-    let list = List::new(visible_logs)
+    // 使用Paragraph组件显示日志，支持自动换行
+    let paragraph = Paragraph::new(log_content)
         .block(Block::default().borders(Borders::ALL).title(title))
-        .style(Style::default().fg(Color::White));
+        .style(Style::default().fg(Color::White))
+        .wrap(Wrap { trim: true })
+        .scroll((app.logs_scroll as u16, 0));  // 使用scroll属性处理滚动
 
-    f.render_stateful_widget(list, area, &mut list_state);
+    f.render_widget(paragraph, area);
     
     // 添加垂直滚动条
+    let total_lines = app.logs.len();
+    let visible_height = area.height.saturating_sub(2) as usize;
+    
     if total_lines > visible_height {
         let mut scrollbar_state = ScrollbarState::default()
             .content_length(total_lines)
             .viewport_content_length(visible_height)
-            .position(start_index);
+            .position(app.logs_scroll);
         
         let scrollbar = Scrollbar::default()
             .orientation(ScrollbarOrientation::VerticalRight)

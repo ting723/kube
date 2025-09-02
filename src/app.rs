@@ -87,6 +87,15 @@ pub struct AppState {
     pub logs_auto_refresh: bool,
     pub logs_refresh_interval: Duration,
     pub last_logs_refresh: Instant,
+    // 全局刷新状态
+    pub global_refresh_enabled: bool,  // 新增：全局刷新开关
+    pub refresh_status_text: String,   // 新增：刷新状态显示
+    // Describe内容自动刷新
+    pub describe_auto_refresh: bool,   // 新增：describe自动刷新
+    pub last_describe_refresh: Instant, // 新增：describe刷新时间记录
+    // YAML内容自动刷新  
+    pub yaml_auto_refresh: bool,       // 新增：YAML自动刷新
+    pub last_yaml_refresh: Instant,    // 新增：YAML刷新时间记录
     // 执行操作标志
     pub pending_exec: Option<String>,
     // YAML查看内容
@@ -149,6 +158,15 @@ impl Default for AppState {
             logs_auto_refresh: true,
             logs_refresh_interval: Duration::from_secs(2),
             last_logs_refresh: Instant::now(),
+            // 全局刷新状态
+            global_refresh_enabled: true,
+            refresh_status_text: String::new(),
+            // Describe内容自动刷新
+            describe_auto_refresh: false,  // 默认关闭，避免频繁刷新
+            last_describe_refresh: Instant::now(),
+            // YAML内容自动刷新
+            yaml_auto_refresh: false,      // 默认关闭，避免频繁刷新
+            last_yaml_refresh: Instant::now(),
             pending_exec: None,
             // YAML查看内容
             yaml_content: String::new(),
@@ -168,16 +186,127 @@ impl Default for AppState {
 
 impl AppState {
     pub fn new() -> Self {
-        Self::default()
+        let mut app = Self::default();
+        // 初始化刷新状态文本
+        app.update_refresh_status();
+        app
     }
 
     pub fn should_refresh(&self) -> bool {
-        self.auto_refresh && self.last_update.elapsed() >= self.refresh_interval
+        self.global_refresh_enabled && self.auto_refresh && self.last_update.elapsed() >= self.refresh_interval
     }
 
     pub fn should_refresh_logs(&self) -> bool {
-        self.logs_auto_refresh && self.mode == AppMode::Logs 
+        self.global_refresh_enabled && self.logs_auto_refresh && self.mode == AppMode::Logs 
             && self.last_logs_refresh.elapsed() >= self.logs_refresh_interval
+    }
+
+    // 新增：判断是否需要刷新describe内容
+    pub fn should_refresh_describe(&self) -> bool {
+        self.global_refresh_enabled && self.describe_auto_refresh && self.mode == AppMode::Describe
+            && self.last_describe_refresh.elapsed() >= self.refresh_interval
+    }
+
+    // 新增：判断是否需要刷新YAML内容
+    pub fn should_refresh_yaml(&self) -> bool {
+        self.global_refresh_enabled && self.yaml_auto_refresh && self.mode == AppMode::YamlView
+            && self.last_yaml_refresh.elapsed() >= self.refresh_interval
+    }
+
+    // 新增：刷新describe内容时间戳
+    pub fn refresh_describe(&mut self) {
+        self.last_describe_refresh = Instant::now();
+    }
+
+    // 新增：刷新YAML内容时间戳
+    pub fn refresh_yaml(&mut self) {
+        self.last_yaml_refresh = Instant::now();
+    }
+
+    // 新增：切换全局刷新状态
+    pub fn toggle_global_refresh(&mut self) {
+        self.global_refresh_enabled = !self.global_refresh_enabled;
+        self.update_refresh_status();
+    }
+
+    // 新增：切换describe自动刷新
+    pub fn toggle_describe_refresh(&mut self) {
+        self.describe_auto_refresh = !self.describe_auto_refresh;
+        self.update_refresh_status();
+    }
+
+    // 新增：切换YAML自动刷新
+    pub fn toggle_yaml_refresh(&mut self) {
+        self.yaml_auto_refresh = !self.yaml_auto_refresh;
+        self.update_refresh_status();
+    }
+
+    // 新增：更新刷新状态文本
+    fn update_refresh_status(&mut self) {
+        if !self.global_refresh_enabled {
+            self.refresh_status_text = if self.language_chinese {
+                "[刷新已禁用]".to_string()
+            } else {
+                "[Refresh Disabled]".to_string()
+            };
+        } else {
+            let mut status_parts = Vec::new();
+            
+            if self.auto_refresh {
+                status_parts.push(if self.language_chinese { "列表" } else { "Lists" });
+            }
+            if self.logs_auto_refresh {
+                status_parts.push(if self.language_chinese { "日志" } else { "Logs" });
+            }
+            if self.describe_auto_refresh {
+                status_parts.push(if self.language_chinese { "描述" } else { "Describe" });
+            }
+            if self.yaml_auto_refresh {
+                status_parts.push("YAML");
+            }
+            
+            if status_parts.is_empty() {
+                self.refresh_status_text = if self.language_chinese {
+                    "[无自动刷新]".to_string()
+                } else {
+                    "[No Auto-refresh]".to_string()
+                };
+            } else {
+                let prefix = if self.language_chinese { "[自动刷新: " } else { "[Auto-refresh: " };
+                self.refresh_status_text = format!("{}{} ]", prefix, status_parts.join(", "));
+            }
+        }
+    }
+
+    // 新增：强制刷新当前模式的内容
+    pub fn force_refresh_current_mode(&mut self) {
+        match self.mode {
+            AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
+            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList 
+            | AppMode::PVList | AppMode::ConfigMapList | AppMode::SecretList => {
+                // 强制刷新资源列表
+                self.refresh_data();
+            }
+            AppMode::Logs => {
+                // 强制刷新日志
+                self.refresh_logs();
+            }
+            AppMode::Describe => {
+                // 强制刷新describe内容
+                self.refresh_describe();
+            }
+            AppMode::YamlView => {
+                // 强制刷新YAML内容
+                self.refresh_yaml();
+            }
+            AppMode::TopView => {
+                // 强制刷新资源监控数据
+                self.refresh_data();
+            }
+            _ => {
+                // 其他模式不需要刷新
+            }
+        }
     }
 
     pub fn refresh_logs(&mut self) {
@@ -251,16 +380,37 @@ impl AppState {
             KeyCode::Char('/') => self.start_search(),
             KeyCode::Char('n') => self.search_next(),
             KeyCode::Char('N') => self.search_previous(),
-            // 自动滚动切换（仅在日志模式下）
+            // 自动刷新相关快捷键
             KeyCode::Char('A') => {
-                if self.mode == AppMode::Logs {
-                    self.logs_auto_scroll = !self.logs_auto_scroll;
+                match self.mode {
+                    AppMode::Logs => {
+                        self.logs_auto_scroll = !self.logs_auto_scroll;
+                    }
+                    _ => {
+                        // 在其他模式下，A键切换全局刷新
+                        self.toggle_global_refresh();
+                    }
                 }
             }
             // 日志自动刷新切换（仅在日志模式下）
             KeyCode::Char('R') => {
-                if self.mode == AppMode::Logs {
-                    self.logs_auto_refresh = !self.logs_auto_refresh;
+                match self.mode {
+                    AppMode::Logs => {
+                        self.logs_auto_refresh = !self.logs_auto_refresh;
+                        self.update_refresh_status();
+                    }
+                    AppMode::Describe => {
+                        // 在Describe模式下，R键切换describe自动刷新
+                        self.toggle_describe_refresh();
+                    }
+                    AppMode::YamlView => {
+                        // 在YAML模式下，R键切换YAML自动刷新
+                        self.toggle_yaml_refresh();
+                    }
+                    _ => {
+                        // 在其他模式下，R键手动刷新当前数据
+                        self.force_refresh_current_mode();
+                    }
                 }
             }
             // Tab 切换面板
