@@ -9,15 +9,31 @@ use crate::app::AppState;
 
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let title = if let Some(pod) = app.get_selected_pod() {
-        format!(
-            "Logs - {}/{} (j/k:scroll, PgUp/PgDn:page, A:auto-scroll:{}, R:auto-refresh:{})", 
-            app.current_namespace, 
-            pod.name,
-            if app.logs_auto_scroll { "ON" } else { "OFF" },
-            if app.logs_auto_refresh { "ON" } else { "OFF" }
-        )
+        if app.language_chinese {
+            format!(
+                "日志 - {}/{} (j/k:滚动, PgUp/PgDn:翻页, A:自动滚动:{}, R:自动刷新:{}, M:切换鼠标模式:{})", 
+                app.current_namespace, 
+                pod.name,
+                if app.logs_auto_scroll { "开启" } else { "关闭" },
+                if app.logs_auto_refresh { "开启" } else { "关闭" },
+                if app.text_selection_mode { "文本选择" } else { "鼠标滚动" }
+            )
+        } else {
+            format!(
+                "Logs - {}/{} (j/k:scroll, PgUp/PgDn:page, A:auto-scroll:{}, R:auto-refresh:{}, M:toggle mouse mode:{})", 
+                app.current_namespace, 
+                pod.name,
+                if app.logs_auto_scroll { "ON" } else { "OFF" },
+                if app.logs_auto_refresh { "ON" } else { "OFF" },
+                if app.text_selection_mode { "Text Select" } else { "Mouse Scroll" }
+            )
+        }
     } else {
-        "Logs".to_string()
+        if app.language_chinese {
+            "日志".to_string()
+        } else {
+            "Logs".to_string()
+        }
     };
 
     if app.logs.is_empty() {

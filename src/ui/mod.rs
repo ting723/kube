@@ -123,17 +123,23 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
         // 中文提示
         match app.mode {
             AppMode::NamespaceList => "j/k ↑↓ 导航 • Enter 选择 • h/l ←→ 切换 • Tab/Shift+Tab 标签页 • / 搜索 • I 切换语言 • q 退出 • ? 帮助",
-            AppMode::PodList => "j/k 导航 • Space 详情 • Y YAML • T 监控 • L 日志 • D 删除 • E 进入 • / 搜索 • I 切换语言 • q 退出",
-            AppMode::ServiceList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出",
-            AppMode::NodeList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出",
-            AppMode::DeploymentList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出",
-            AppMode::JobList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出",
-            AppMode::DaemonSetList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出",
-            AppMode::PVCList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出",
-            AppMode::PVList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出",
-            AppMode::ConfigMapList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出",
-            AppMode::SecretList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出",
-            AppMode::Logs => "j/k 滚动 • PgUp/PgDn 翻页 • A 切换自动滚动 • R 切换自动刷新 • I 切换语言 • Esc 返回 • q 退出",
+            AppMode::PodList => "j/k 导航 • Space 详情 • Y YAML • T 监控 • L 日志 • D 删除 • E 进入 • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::ServiceList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::NodeList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::DeploymentList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::JobList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::DaemonSetList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::PVCList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::PVList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::ConfigMapList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::SecretList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::Logs => {
+                if app.text_selection_mode {
+                    "j/k 滚动 • PgUp/PgDn 翻页 • A 切换自动滚动 • R 切换自动刷新 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
+                } else {
+                    "j/k 滚动 • PgUp/PgDn 翻页 • A 切换自动滚动 • R 切换自动刷新 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出"
+                }
+            },
             AppMode::Describe => {
                 if app.text_selection_mode {
                     "j/k 滚动 • R 切换自动刷新 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出"
@@ -157,17 +163,23 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
         // English prompts
         match app.mode {
             AppMode::NamespaceList => "j/k ↑↓ Navigate • Enter Select • h/l ←→ Switch • Tab/Shift+Tab Tabs • / Search • I Language • q Quit • ? Help",
-            AppMode::PodList => "j/k Navigate • Space Describe • Y YAML • T Top • L Logs • D Delete • E Exec • / Search • I Language • q Quit",
-            AppMode::ServiceList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit",
-            AppMode::NodeList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit",
-            AppMode::DeploymentList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit",
-            AppMode::JobList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit",
-            AppMode::DaemonSetList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit",
-            AppMode::PVCList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit",
-            AppMode::PVList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit",
-            AppMode::ConfigMapList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit",
-            AppMode::SecretList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit",
-            AppMode::Logs => "j/k Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • R Toggle Auto-refresh • I Language • Esc Back • q Quit",
+            AppMode::PodList => "j/k Navigate • Space Describe • Y YAML • T Top • L Logs • D Delete • E Exec • / Search • I Language • q Quit • R Refresh",
+            AppMode::ServiceList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit • R Refresh",
+            AppMode::NodeList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
+            AppMode::DeploymentList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
+            AppMode::JobList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
+            AppMode::DaemonSetList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
+            AppMode::PVCList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
+            AppMode::PVList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
+            AppMode::ConfigMapList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit • R Refresh",
+            AppMode::SecretList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit • R Refresh",
+            AppMode::Logs => {
+                if app.text_selection_mode {
+                    "j/k Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • R Toggle Auto-refresh • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
+                } else {
+                    "j/k Scroll • PgUp/PgDn Page • A Toggle Auto-scroll • R Toggle Auto-refresh • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit"
+                }
+            },
             AppMode::Describe => {
                 if app.text_selection_mode {
                     "j/k Scroll • R Toggle Auto-refresh • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit"
@@ -200,21 +212,11 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
     let command_text = if !app.current_command.is_empty() {
         format!("Executing: {}", app.current_command)
     } else {
-        // 在空闲时显示当前模式的相关命令提示
+        // 在空闲时显示当前模式的相关命令提示和刷新状态
         match app.mode {
-            AppMode::PodList => format!("Ready - Use: Space (describe), Y (yaml), T (top), L (logs), E (exec), D (delete), / (search) - kubectl get pods -n {}", app.current_namespace),
-            AppMode::ServiceList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get services -n {}", app.current_namespace),
-            AppMode::DeploymentList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get deployments -n {}", app.current_namespace),
-            AppMode::JobList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get jobs -n {}", app.current_namespace),
-            AppMode::DaemonSetList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get daemonsets -n {}", app.current_namespace),
-            AppMode::NodeList => "Ready - Use: Space (describe), Y (yaml), / (search) - kubectl get nodes".to_string(),
-            AppMode::ConfigMapList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get configmaps -n {}", app.current_namespace),
-            AppMode::SecretList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get secrets -n {}", app.current_namespace),
-            AppMode::PVCList => format!("Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get pvc -n {}", app.current_namespace),
-            AppMode::PVList => "Ready - Use: Space (describe), Y (yaml), D (delete), / (search) - kubectl get pv".to_string(),
             AppMode::Logs => {
                 if let Some(pod) = app.get_selected_pod() {
-                    format!("Logs Mode - J/K (scroll), A (auto-scroll), R (auto-refresh) - kubectl logs -f -n {} {} --tail=100", app.current_namespace, pod.name)
+                    format!("kubectl logs -f -n {} {} --tail=100", app.current_namespace, pod.name)
                 } else {
                     "Logs Mode - No pod selected".to_string()
                 }
@@ -223,90 +225,135 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
                 match app.previous_mode {
                     AppMode::PodList => {
                         if let Some(pod) = app.get_selected_pod() {
-                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe pod -n {} {}", app.current_namespace, pod.name)
+                            format!("kubectl describe pod -n {} {}", app.current_namespace, pod.name)
                         } else {
                             "Describe Mode - No pod selected".to_string()
                         }
                     },
                     AppMode::ServiceList => {
                         if let Some(service) = app.get_selected_service() {
-                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe service -n {} {}", app.current_namespace, service.name)
+                            format!("kubectl describe service -n {} {}", app.current_namespace, service.name)
                         } else {
                             "Describe Mode - No service selected".to_string()
                         }
                     },
                     AppMode::DeploymentList => {
                         if let Some(deployment) = app.get_selected_deployment() {
-                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe deployment -n {} {}", app.current_namespace, deployment.name)
+                            format!("kubectl describe deployment -n {} {}", app.current_namespace, deployment.name)
                         } else {
                             "Describe Mode - No deployment selected".to_string()
                         }
                     },
                     AppMode::JobList => {
                         if let Some(job) = app.get_selected_job() {
-                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe job -n {} {}", app.current_namespace, job.name)
+                            format!("kubectl describe job -n {} {}", app.current_namespace, job.name)
                         } else {
                             "Describe Mode - No job selected".to_string()
                         }
                     },
                     AppMode::NodeList => {
                         if let Some(node) = app.get_selected_node() {
-                            format!("Describe Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl describe node {}", node.name)
+                            format!("kubectl describe node {}", node.name)
                         } else {
                             "Describe Mode - No node selected".to_string()
                         }
                     },
-                    _ => "Describe Mode - J/K (scroll), R (auto-refresh), Esc (back)".to_string(),
+                    AppMode::DaemonSetList => {
+                        if let Some(daemonset) = app.get_selected_daemonset() {
+                            format!("kubectl describe daemonset -n {} {}", app.current_namespace, daemonset.name)
+                        } else {
+                            "Describe Mode - No daemonset selected".to_string()
+                        }
+                    },
+                    AppMode::ConfigMapList => {
+                        if let Some(configmap) = app.get_selected_configmap() {
+                            format!("kubectl describe configmap -n {} {}", app.current_namespace, configmap.name)
+                        } else {
+                            "Describe Mode - No configmap selected".to_string()
+                        }
+                    },
+                    AppMode::SecretList => {
+                        if let Some(secret) = app.get_selected_secret() {
+                            format!("kubectl describe secret -n {} {}", app.current_namespace, secret.name)
+                        } else {
+                            "Describe Mode - No secret selected".to_string()
+                        }
+                    },
+                    AppMode::PVCList => {
+                        if let Some(pvc) = app.get_selected_pvc() {
+                            format!("kubectl describe pvc -n {} {}", app.current_namespace, pvc.name)
+                        } else {
+                            "Describe Mode - No pvc selected".to_string()
+                        }
+                    },
+                    AppMode::PVList => {
+                        if let Some(pv) = app.get_selected_pv() {
+                            format!("kubectl describe pv {}", pv.name)
+                        } else {
+                            "Describe Mode - No pv selected".to_string()
+                        }
+                    },
+                    _ => "Describe Mode".to_string(),
                 }
             },
             AppMode::YamlView => {
                 match app.previous_mode {
                     AppMode::PodList => {
                         if let Some(pod) = app.get_selected_pod() {
-                            format!("YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl get pod -n {} {} -o yaml", app.current_namespace, pod.name)
+                            format!("kubectl get pod -n {} {} -o yaml", app.current_namespace, pod.name)
                         } else {
                             "YAML View Mode - No pod selected".to_string()
                         }
                     },
                     AppMode::ServiceList => {
                         if let Some(service) = app.get_selected_service() {
-                            format!("YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl get service -n {} {} -o yaml", app.current_namespace, service.name)
+                            format!("kubectl get service -n {} {} -o yaml", app.current_namespace, service.name)
                         } else {
                             "YAML View Mode - No service selected".to_string()
                         }
                     },
                     AppMode::DeploymentList => {
                         if let Some(deployment) = app.get_selected_deployment() {
-                            format!("YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl get deployment -n {} {} -o yaml", app.current_namespace, deployment.name)
+                            format!("kubectl get deployment -n {} {} -o yaml", app.current_namespace, deployment.name)
                         } else {
                             "YAML View Mode - No deployment selected".to_string()
                         }
                     },
                     AppMode::NodeList => {
                         if let Some(node) = app.get_selected_node() {
-                            format!("YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back) - kubectl get node {} -o yaml", node.name)
+                            format!("kubectl get node {} -o yaml", node.name)
                         } else {
                             "YAML View Mode - No node selected".to_string()
                         }
                     },
-                    _ => "YAML View Mode - J/K (scroll), R (auto-refresh), Esc (back)".to_string(),
+                    _ => "YAML View Mode".to_string(),
                 }
             },
             AppMode::TopView => {
-                format!("Resource Usage Mode - J/K (scroll), Esc (back) - kubectl top pods -n {}", app.current_namespace)
+                format!("kubectl top pods -n {}", app.current_namespace)
             },
-            AppMode::Search => "Search Mode - Type to search, Enter (select), Esc (cancel)".to_string(),
-            AppMode::NamespaceList => "Ready - Select namespace - kubectl get namespaces".to_string(),
-            AppMode::Confirm => "Confirmation - y/Y (confirm), n/N/Esc (cancel)".to_string(),
-            AppMode::Help => "Help Mode - Esc (back), q (quit)".to_string(),
+            AppMode::Search => "Search Mode".to_string(),
+            AppMode::NamespaceList => "kubectl get namespaces".to_string(),
+            AppMode::PodList => format!("kubectl get pods -n {}", app.current_namespace),
+            AppMode::ServiceList => format!("kubectl get services -n {}", app.current_namespace),
+            AppMode::DeploymentList => format!("kubectl get deployments -n {}", app.current_namespace),
+            AppMode::JobList => format!("kubectl get jobs -n {}", app.current_namespace),
+            AppMode::DaemonSetList => format!("kubectl get daemonsets -n {}", app.current_namespace),
+            AppMode::NodeList => "kubectl get nodes".to_string(),
+            AppMode::ConfigMapList => format!("kubectl get configmaps -n {}", app.current_namespace),
+            AppMode::SecretList => format!("kubectl get secrets -n {}", app.current_namespace),
+            AppMode::PVCList => format!("kubectl get pvc -n {}", app.current_namespace),
+            AppMode::PVList => "kubectl get pv".to_string(),
+            AppMode::Confirm => "Confirmation Mode".to_string(),
+            AppMode::Help => "Help Mode".to_string(),
         }
     };
 
     // 添加刷新状态显示
     let status_text = if !app.refresh_status_text.is_empty() {
-        format!("{} {}", command_text, app.refresh_status_text)
+        format!("{} - Press 'R' to refresh {}", command_text, app.refresh_status_text)
     } else {
-        command_text
+        format!("{} - Press 'R' to refresh", command_text)
     };
 
     let command_line = Paragraph::new(status_text)

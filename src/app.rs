@@ -419,7 +419,7 @@ impl AppState {
             // M键在YAML/Describe模式下切换鼠标模式
             KeyCode::Char('M') | KeyCode::Char('m') => {
                 match self.mode {
-                    AppMode::Describe | AppMode::YamlView => {
+                    AppMode::Describe | AppMode::YamlView | AppMode::Logs => {
                         self.toggle_mouse_mode();
                     }
                     _ => {}
@@ -447,7 +447,7 @@ impl AppState {
     // 获取当前鼠标模式的显示文本
     pub fn get_mouse_mode_text(&self) -> &'static str {
         match self.mode {
-            AppMode::Describe | AppMode::YamlView => {
+            AppMode::Describe | AppMode::YamlView | AppMode::Logs => {
                 if self.language_chinese {
                     if self.text_selection_mode {
                         "文本选择模式" // 可以选中复制文本
@@ -1180,8 +1180,8 @@ impl AppState {
     pub fn should_enable_mouse_capture(&self) -> bool {
         match self.mode {
             AppMode::Logs | AppMode::TopView => {
-                // Logs和TopView始终启用鼠标捕获，因为它们不需要复制功能
-                true
+                // 在Logs和TopView模式下，只有非文本选择模式才启用鼠标捕获
+                !self.text_selection_mode
             }
             AppMode::Describe | AppMode::YamlView => {
                 // 在Describe和YAML模式下，只有非文本选择模式才启用鼠标捕获
