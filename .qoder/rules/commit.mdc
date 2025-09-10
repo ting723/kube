@@ -1,3 +1,7 @@
+---
+trigger: always_on
+alwaysApply: true
+---
 # Commit
 
 Create well-formatted commits with conventional commit messages and emojis.
