@@ -8,7 +8,8 @@ use ratatui::{
 use crate::app::AppState;
 
 pub fn render(f: &mut Frame, _area: Rect, _app: &AppState) {
-    let help_text = r#"
+    let help_text = if _app.language_chinese {
+        r#"
 Kube TUI - Kubernetes Terminal Interface
 Kube TUI - Kubernetes 终端界面工具
 
@@ -21,6 +22,17 @@ NAVIGATION / 导航:
   Esc              Go back / 返回上级
   q                Quit application / 退出程序
   ?                Show this help / 显示帮助
+
+PANEL ACCESS / 面板访问:
+  Tab              循环切换核心面板 (Namespaces → Pods → Services → Deployments)
+  Shift+Tab        反向循环切换核心面板
+  F1               Nodes面板
+  F2               ConfigMaps面板
+  F3               Secrets面板
+  F4               Jobs面板
+  F5               DaemonSets面板
+  F6               More Resources面板
+  F7               Help面板
 
 NAMESPACE VIEW / 命名空间视图:
   Enter            Switch to selected namespace / 切换到选中的命名空间
@@ -46,7 +58,17 @@ YAML/DESCRIBE/TOP VIEW / YAML/描述/监控视图:
   PgUp/PgDn        Scroll page by page / 按页滚动
   Esc              Return to previous view / 返回上一级视图
 
-SERVICE/NODE/CONFIGMAP/SECRET VIEW / 服务/节点/配置/密钥视图:
+MORE RESOURCES PANEL / 更多资源面板:
+  1                PVCs - 持久化存储声明
+  2                PVs - 持久化存储卷
+  3                Nodes - 节点管理
+  4                ConfigMaps - 配置管理
+  5                Secrets - 密钥管理
+  6                Jobs - 任务管理
+  7                DaemonSets - 守护进程集
+  Esc              Return to main panels / 返回主面板
+
+SERVICE/DEPLOYMENT VIEW / 服务/部署视图:
   Space            Describe resource / 查看资源详情
   Y                View YAML config / 查看 YAML 配置
   /                Search resources / 搜索资源
@@ -75,13 +97,101 @@ GENERAL / 常规:
   • Mouse text selection supported / 支持鼠标文字选择
   • Command line shows current kubectl operations
   • 命令行显示当前 kubectl 操作
-"#;
+"#
+    } else {
+        r#"
+Kube TUI - Kubernetes Terminal Interface
+
+NAVIGATION:
+  j/k or ↑/↓       Navigate lists
+  h/l or ←/→       Switch panels
+  Tab              Switch to next panel
+  Shift+Tab        Switch to previous panel
+  Enter            Select item
+  Esc              Go back
+  q                Quit application
+  ?                Show this help
+
+PANEL ACCESS:
+  Tab              Cycle through core panels (Namespaces → Pods → Services → Deployments)
+  Shift+Tab        Cycle through core panels in reverse
+  F1               Nodes panel
+  F2               ConfigMaps panel
+  F3               Secrets panel
+  F4               Jobs panel
+  F5               DaemonSets panel
+  F6               More Resources panel
+  F7               Help panel
+
+NAMESPACE VIEW:
+  Enter            Switch to selected namespace
+
+POD VIEW:
+  Space            Describe pod
+  Y                View YAML config
+  T                View resource usage
+  L                View pod logs
+  D                Delete pod (requires confirmation)
+  E                Exec into pod
+  /                Search pods
+
+LOGS VIEW:
+  J/K              Scroll line by line
+  PgUp/PgDn        Scroll page by page
+  A                Toggle auto-scroll
+  R                Toggle auto-refresh
+  Esc              Return to pod list
+
+YAML/DESCRIBE/TOP VIEW:
+  J/K              Scroll content
+  PgUp/PgDn        Scroll page by page
+  Esc              Return to previous view
+
+MORE RESOURCES PANEL:
+  1                PVCs - Persistent Volume Claims
+  2                PVs - Persistent Volumes
+  3                Nodes - Node Management
+  4                ConfigMaps - Configuration Management
+  5                Secrets - Secret Management
+  6                Jobs - Job Management
+  7                DaemonSets - DaemonSet Management
+  Esc              Return to main panels
+
+SERVICE/DEPLOYMENT VIEW:
+  Space            Describe resource
+  Y                View YAML config
+  /                Search resources
+
+RESOURCE MONITORING:
+  T (in Pod view)  View CPU/Memory usage
+  Note: Requires metrics-server
+
+SEARCH:
+  /                Start search
+  Type query       Enter search terms
+  ↑/↓              Navigate search results
+  Enter            Confirm search
+  n/N              Next/Previous result
+  Esc              Cancel search
+
+CONFIRM DIALOG:
+  y/Y              Confirm action
+  n/N/Esc          Cancel action
+
+GENERAL:
+  • Auto-refresh every 5 seconds
+  • Status colors: Green=Running, Yellow=Pending, Red=Failed
+  • YAML syntax highlighting
+  • Mouse text selection supported
+  • Command line shows current kubectl operations
+"#
+    };
 
     let paragraph = Paragraph::new(help_text)
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Help / 帮助")
+                .title(if _app.language_chinese { "Help / 帮助" } else { "Help" })
         )
         .style(Style::default().fg(Color::White))
         .wrap(Wrap { trim: true });

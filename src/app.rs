@@ -34,6 +34,8 @@ pub enum AppMode {
     Help,
     YamlView,
     TopView,
+    // 新增更多资源面板模式
+    MoreResources,
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +112,8 @@ pub struct AppState {
     // 资源监控数据
     pub pod_metrics: Vec<crate::kubectl::types::PodMetrics>,
     pub metrics_scroll: usize,
+    // 更多资源面板选中索引
+    pub selected_more_resource_index: usize,
 }
 
 impl Default for AppState {
@@ -180,6 +184,8 @@ impl Default for AppState {
             // 资源监控数据
             pod_metrics: Vec::new(),
             metrics_scroll: 0,
+            // 更多资源面板选中索引
+            selected_more_resource_index: 0,
         }
     }
 }
@@ -289,23 +295,57 @@ impl AppState {
             }
             AppMode::Logs => {
                 // 强制刷新日志
-                self.refresh_logs();
+                self.last_logs_refresh = Instant::now().checked_sub(self.logs_refresh_interval).unwrap_or_else(Instant::now);
             }
             AppMode::Describe => {
-                // 强制刷新describe内容
-                self.refresh_describe();
+                // 强制刷新描述内容
+                self.last_describe_refresh = Instant::now().checked_sub(self.refresh_interval).unwrap_or_else(Instant::now);
             }
             AppMode::YamlView => {
                 // 强制刷新YAML内容
-                self.refresh_yaml();
+                self.last_yaml_refresh = Instant::now().checked_sub(self.refresh_interval).unwrap_or_else(Instant::now);
             }
             AppMode::TopView => {
                 // 强制刷新资源监控数据
                 self.refresh_data();
             }
-            _ => {
-                // 其他模式不需要刷新
+            _ => {}
+        }
+    }
+
+    // 处理更多资源面板的导航
+    pub fn handle_more_resources_navigation(&mut self, key_event: KeyEvent) {
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_more_resource_index < 6 {
+                    self.selected_more_resource_index += 1;
+                }
             }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_more_resource_index > 0 {
+                    self.selected_more_resource_index -= 1;
+                }
+            }
+            KeyCode::Char('1') => self.mode = AppMode::PVCList,
+            KeyCode::Char('2') => self.mode = AppMode::PVList,
+            KeyCode::Char('3') => self.mode = AppMode::NodeList,
+            KeyCode::Char('4') => self.mode = AppMode::ConfigMapList,
+            KeyCode::Char('5') => self.mode = AppMode::SecretList,
+            KeyCode::Char('6') => self.mode = AppMode::JobList,
+            KeyCode::Char('7') => self.mode = AppMode::DaemonSetList,
+            KeyCode::Enter => {
+                match self.selected_more_resource_index {
+                    0 => self.mode = AppMode::PVCList,
+                    1 => self.mode = AppMode::PVList,
+                    2 => self.mode = AppMode::NodeList,
+                    3 => self.mode = AppMode::ConfigMapList,
+                    4 => self.mode = AppMode::SecretList,
+                    5 => self.mode = AppMode::JobList,
+                    6 => self.mode = AppMode::DaemonSetList,
+                    _ => {}
+                }
+            }
+            _ => {}
         }
     }
 
@@ -328,12 +368,18 @@ impl AppState {
             return self.handle_confirm_key_event(key_event);
         }
 
+        // 处理更多资源面板的数字键导航
+        if self.mode == AppMode::MoreResources {
+            self.handle_more_resources_navigation(key_event);
+            return Ok(());
+        }
+
         match key_event.code {
             KeyCode::Char('q') => self.should_quit = true,
-            KeyCode::Char('?') | KeyCode::F(1) => self.mode = AppMode::Help,
+            KeyCode::Char('?') => self.mode = AppMode::Help,
             KeyCode::Esc => {
                 match self.mode {
-                    AppMode::Help | AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                    AppMode::Help | AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView | AppMode::MoreResources => {
                         self.reset_scroll();
                         self.mode = self.get_previous_mode();
                     }
@@ -429,6 +475,14 @@ impl AppState {
             KeyCode::Char('I') | KeyCode::Char('i') => {
                 self.toggle_language();
             }
+            // 功能键快速访问面板
+            KeyCode::F(1) => self.mode = AppMode::NodeList,
+            KeyCode::F(2) => self.mode = AppMode::ConfigMapList,
+            KeyCode::F(3) => self.mode = AppMode::SecretList,
+            KeyCode::F(4) => self.mode = AppMode::JobList,
+            KeyCode::F(5) => self.mode = AppMode::DaemonSetList,
+            KeyCode::F(6) => self.mode = AppMode::MoreResources,
+            KeyCode::F(7) => self.mode = AppMode::Help,
             _ => {}
         }
         Ok(())
@@ -661,14 +715,8 @@ impl AppState {
             AppMode::NamespaceList => self.mode = AppMode::PodList,
             AppMode::PodList => self.mode = AppMode::ServiceList,
             AppMode::ServiceList => self.mode = AppMode::DeploymentList,
-            AppMode::DeploymentList => self.mode = AppMode::JobList,
-            AppMode::JobList => self.mode = AppMode::PVCList,
-            AppMode::PVCList => self.mode = AppMode::PVList,
-            AppMode::PVList => self.mode = AppMode::NodeList,
-            AppMode::NodeList => self.mode = AppMode::ConfigMapList,
-            AppMode::ConfigMapList => self.mode = AppMode::DaemonSetList,
-            AppMode::DaemonSetList => self.mode = AppMode::SecretList,
-            AppMode::SecretList => self.mode = AppMode::Help,
+            AppMode::DeploymentList => self.mode = AppMode::MoreResources,
+            AppMode::MoreResources => self.mode = AppMode::Help,
             AppMode::Help => self.mode = AppMode::NamespaceList,
             _ => {}
         }
@@ -677,14 +725,8 @@ impl AppState {
     fn switch_panel_left(&mut self) {
         match self.mode {
             AppMode::NamespaceList => self.mode = AppMode::Help,
-            AppMode::Help => self.mode = AppMode::SecretList,
-            AppMode::SecretList => self.mode = AppMode::DaemonSetList,
-            AppMode::DaemonSetList => self.mode = AppMode::ConfigMapList,
-            AppMode::ConfigMapList => self.mode = AppMode::NodeList,
-            AppMode::NodeList => self.mode = AppMode::PVList,
-            AppMode::PVList => self.mode = AppMode::PVCList,
-            AppMode::PVCList => self.mode = AppMode::JobList,
-            AppMode::JobList => self.mode = AppMode::DeploymentList,
+            AppMode::Help => self.mode = AppMode::MoreResources,
+            AppMode::MoreResources => self.mode = AppMode::DeploymentList,
             AppMode::DeploymentList => self.mode = AppMode::ServiceList,
             AppMode::ServiceList => self.mode = AppMode::PodList,
             AppMode::PodList => self.mode = AppMode::NamespaceList,
@@ -908,7 +950,7 @@ impl AppState {
 
     pub fn get_previous_mode(&self) -> AppMode {
         match self.mode {
-            AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+            AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView | AppMode::MoreResources => {
                 // 从之前记录的模式返回
                 self.previous_mode.clone()
             }

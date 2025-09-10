@@ -28,61 +28,42 @@ pub fn render_ui(f: &mut Frame, app: &AppState) {
 }
 
 fn render_header(f: &mut Frame, area: Rect, app: &AppState) {
-    let titles = vec!["Namespaces", "Pods", "Services", "Deployments", "Jobs", "PVCs", "PVs", "Nodes", "ConfigMaps", "DaemonSets", "Secrets", "Help"];
+    // 根据使用频次重新设计标签页，只显示核心资源类型
+    let titles = vec!["Namespaces", "Pods", "Services", "Deployments", "More Resources", "Help"];
     let index = match app.mode {
         AppMode::NamespaceList => 0,
         AppMode::PodList => 1,
         AppMode::ServiceList => 2,
         AppMode::DeploymentList => 3,
-        AppMode::JobList => 4,
-        AppMode::PVCList => 5,
-        AppMode::PVList => 6,
-        AppMode::NodeList => 7,
-        AppMode::ConfigMapList => 8,
-        AppMode::DaemonSetList => 9,
-        AppMode::SecretList => 10,
-        AppMode::Help => 11,
-        AppMode::Logs | AppMode::Describe => {
+        // 更多资源面板
+        AppMode::MoreResources => 4,
+        AppMode::Help => 5,
+        // 其他资源类型面板在标签页中不直接显示，但需要处理
+        AppMode::JobList | AppMode::PVCList | AppMode::PVList | AppMode::NodeList | 
+        AppMode::ConfigMapList | AppMode::DaemonSetList | AppMode::SecretList => 4, // 显示为More Resources
+        // 视图模式保持原有的高亮逻辑
+        AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
             // 根据之前的模式显示正确的Tab高亮
             match app.previous_mode {
+                AppMode::NamespaceList => 0,
                 AppMode::PodList => 1,
                 AppMode::ServiceList => 2,
                 AppMode::DeploymentList => 3,
-                AppMode::JobList => 4,
-                AppMode::PVCList => 5,
-                AppMode::PVList => 6,
-                AppMode::NodeList => 7,
-                AppMode::ConfigMapList => 8,
-                AppMode::DaemonSetList => 9,
-                AppMode::SecretList => 10,
+                AppMode::MoreResources | AppMode::JobList | AppMode::PVCList | AppMode::PVList | 
+                AppMode::NodeList | AppMode::ConfigMapList | AppMode::DaemonSetList | AppMode::SecretList => 4,
+                AppMode::Help => 5,
                 _ => 1,
             }
         }
         AppMode::Search | AppMode::Confirm => match app.get_previous_mode() {
+            AppMode::NamespaceList => 0,
             AppMode::PodList => 1,
             AppMode::ServiceList => 2,
             AppMode::DeploymentList => 3,
-            AppMode::JobList => 4,
-            AppMode::PVCList => 5,
-            AppMode::PVList => 6,
-            AppMode::NodeList => 7,
-            AppMode::ConfigMapList => 8,
-            AppMode::DaemonSetList => 9,
-            AppMode::SecretList => 10,
+            AppMode::MoreResources | AppMode::JobList | AppMode::PVCList | AppMode::PVList | 
+            AppMode::NodeList | AppMode::ConfigMapList | AppMode::DaemonSetList | AppMode::SecretList => 4,
+            AppMode::Help => 5,
             _ => 0,
-        },
-        AppMode::YamlView | AppMode::TopView => match app.previous_mode {
-            AppMode::PodList => 1,
-            AppMode::ServiceList => 2,
-            AppMode::DeploymentList => 3,
-            AppMode::JobList => 4,
-            AppMode::PVCList => 5,
-            AppMode::PVList => 6,
-            AppMode::NodeList => 7,
-            AppMode::ConfigMapList => 8,
-            AppMode::DaemonSetList => 9,
-            AppMode::SecretList => 10,
-            _ => 1,
         },
     };
 
@@ -115,6 +96,8 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::Help => components::help::render(f, area, app),
         AppMode::YamlView => components::yaml_view::render(f, area, app),
         AppMode::TopView => components::top_view::render(f, area, app),
+        // 新增更多资源面板
+        AppMode::MoreResources => components::more_resources::render(f, area, app),
     }
 }
 
@@ -122,15 +105,16 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
     let help_text = if app.language_chinese {
         // 中文提示
         match app.mode {
-            AppMode::NamespaceList => "j/k ↑↓ 导航 • Enter 选择 • h/l ←→ 切换 • Tab/Shift+Tab 标签页 • / 搜索 • I 切换语言 • q 退出 • ? 帮助",
+            AppMode::NamespaceList => "j/k ↑↓ 导航 • Enter 选择 • Tab/Shift+Tab 切换面板 • F1-F7 快速访问 • / 搜索 • I 切换语言 • q 退出 • ? 帮助",
             AppMode::PodList => "j/k 导航 • Space 详情 • Y YAML • T 监控 • L 日志 • D 删除 • E 进入 • / 搜索 • I 切换语言 • q 退出 • R 刷新",
             AppMode::ServiceList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出 • R 刷新",
-            AppMode::NodeList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
             AppMode::DeploymentList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::MoreResources => "1-7 访问资源 • Tab/Shift+Tab 切换面板 • Esc 返回 • q 退出",
             AppMode::JobList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
             AppMode::DaemonSetList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
             AppMode::PVCList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
             AppMode::PVList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
+            AppMode::NodeList => "j/k 导航 • Space 详情 • Y YAML • / 搜索 • I 切换语言 • q 退出 • R 刷新",
             AppMode::ConfigMapList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出 • R 刷新",
             AppMode::SecretList => "j/k 导航 • Space 详情 • Y YAML • D 删除 • / 搜索 • I 切换语言 • q 退出 • R 刷新",
             AppMode::Logs => {
@@ -162,15 +146,16 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
     } else {
         // English prompts
         match app.mode {
-            AppMode::NamespaceList => "j/k ↑↓ Navigate • Enter Select • h/l ←→ Switch • Tab/Shift+Tab Tabs • / Search • I Language • q Quit • ? Help",
+            AppMode::NamespaceList => "j/k ↑↓ Navigate • Enter Select • Tab/Shift+Tab Switch panels • F1-F7 Quick access • / Search • I Language • q Quit • ? Help",
             AppMode::PodList => "j/k Navigate • Space Describe • Y YAML • T Top • L Logs • D Delete • E Exec • / Search • I Language • q Quit • R Refresh",
             AppMode::ServiceList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit • R Refresh",
-            AppMode::NodeList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
             AppMode::DeploymentList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
+            AppMode::MoreResources => "1-7 Access resources • Tab/Shift+Tab Switch panels • Esc Back • q Quit",
             AppMode::JobList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
             AppMode::DaemonSetList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
             AppMode::PVCList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
             AppMode::PVList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
+            AppMode::NodeList => "j/k Navigate • Space Describe • Y YAML • / Search • I Language • q Quit • R Refresh",
             AppMode::ConfigMapList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit • R Refresh",
             AppMode::SecretList => "j/k Navigate • Space Describe • Y YAML • D Delete • / Search • I Language • q Quit • R Refresh",
             AppMode::Logs => {
@@ -346,6 +331,8 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::PVList => "kubectl get pv".to_string(),
             AppMode::Confirm => "Confirmation Mode".to_string(),
             AppMode::Help => "Help Mode".to_string(),
+            // 新增更多资源面板模式
+            AppMode::MoreResources => "More Resources Panel".to_string(),
         }
     };
 
