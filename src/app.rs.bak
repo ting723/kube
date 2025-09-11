@@ -1,0 +1,1117 @@
+}
+
+// 处理命名空间列表导航
+fn handle_namespace_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_namespace_index < self.namespaces.len().saturating_sub(1) {
+                self.selected_namespace_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_namespace_index > 0 {
+                self.selected_namespace_index -= 1;
+            }
+        }
+        KeyCode::Enter => {
+            if !self.namespaces.is_empty() {
+                self.current_namespace = self.namespaces[self.selected_namespace_index].clone();
+                // 切换到Pod列表模式
+                self.mode = AppMode::PodList;
+                // 重置所有资源列表的选中索引
+                self.selected_pod_index = 0;
+                self.selected_service_index = 0;
+                self.selected_deployment_index = 0;
+                self.selected_job_index = 0;
+                self.selected_daemonset_index = 0;
+                self.selected_configmap_index = 0;
+                self.selected_secret_index = 0;
+                self.selected_pvc_index = 0;
+                self.selected_pv_index = 0;
+                self.selected_node_index = 0;
+                // 重置滚动位置
+                self.reset_scroll();
+            }
+        }
+        KeyCode::Char('1') => self.mode = AppMode::PodList,
+        KeyCode::Char('2') => self.mode = AppMode::ServiceList,
+        KeyCode::Char('3') => self.mode = AppMode::DeploymentList,
+        KeyCode::Char('4') => self.mode = AppMode::JobList,
+        KeyCode::Char('5') => self.mode = AppMode::DaemonSetList,
+        KeyCode::Char('6') => self.mode = AppMode::ConfigMapList,
+        KeyCode::Char('7') => self.mode = AppMode::SecretList,
+        KeyCode::Tab => self.mode = AppMode::PodList,
+        KeyCode::BackTab => self.mode = AppMode::SecretList,
+        KeyCode::F(1) => self.mode = AppMode::PodList,
+        KeyCode::F(2) => self.mode = AppMode::ServiceList,
+        KeyCode::F(3) => self.mode = AppMode::DeploymentList,
+        KeyCode::F(4) => self.mode = AppMode::JobList,
+        KeyCode::F(5) => self.mode = AppMode::DaemonSetList,
+        KeyCode::F(6) => self.mode = AppMode::ConfigMapList,
+        KeyCode::F(7) => self.mode = AppMode::SecretList,
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Char('?') => self.mode = AppMode::Help,
+        _ => {}
+    }
+}
+
+// 处理Pod列表导航
+fn handle_pod_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_pod_index < self.pods.len().saturating_sub(1) {
+                self.selected_pod_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_pod_index > 0 {
+                self.selected_pod_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.pods.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.pods.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('l') | KeyCode::Char('L') => {
+            if !self.pods.is_empty() {
+                self.mode = AppMode::Logs;
+                self.logs.clear();
+                self.logs_scroll = 0;
+            }
+        }
+        KeyCode::Char('t') | KeyCode::Char('T') => {
+            self.mode = AppMode::TopView;
+            self.pod_metrics.clear();
+            self.metrics_scroll = 0;
+        }
+        KeyCode::Char('d') | KeyCode::Char('D') => {
+            if !self.pods.is_empty() {
+                self.confirm_action = Some(ConfirmAction::DeletePod {
+                    namespace: self.current_namespace.clone(),
+                    name: self.pods[self.selected_pod_index].name.clone(),
+                });
+                self.mode = AppMode::Confirm;
+            }
+        }
+        KeyCode::Char('e') | KeyCode::Char('E') => {
+            if !self.pods.is_empty() {
+                let pod_name = self.pods[self.selected_pod_index].name.clone();
+                self.pending_exec = Some(format!("kubectl exec -it -n {} {} -- sh", self.current_namespace, pod_name));
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::ServiceList,
+        KeyCode::BackTab => self.mode = AppMode::SecretList,
+        _ => {}
+    }
+}
+
+// 处理Service列表导航
+fn handle_service_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_service_index < self.services.len().saturating_sub(1) {
+                self.selected_service_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_service_index > 0 {
+                self.selected_service_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.services.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.services.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('d') | KeyCode::Char('D') => {
+            if !self.services.is_empty() {
+                self.confirm_action = Some(ConfirmAction::DeleteService {
+                    namespace: self.current_namespace.clone(),
+                    name: self.services[self.selected_service_index].name.clone(),
+                });
+                self.mode = AppMode::Confirm;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::DeploymentList,
+        KeyCode::BackTab => self.mode = AppMode::PodList,
+        _ => {}
+    }
+}
+
+// 处理Deployment列表导航
+fn handle_deployment_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_deployment_index < self.deployments.len().saturating_sub(1) {
+                self.selected_deployment_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_deployment_index > 0 {
+                self.selected_deployment_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.deployments.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.deployments.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::JobList,
+        KeyCode::BackTab => self.mode = AppMode::ServiceList,
+        _ => {}
+    }
+}
+
+// 处理Job列表导航
+fn handle_job_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_job_index < self.jobs.len().saturating_sub(1) {
+                self.selected_job_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_job_index > 0 {
+                self.selected_job_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.jobs.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.jobs.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::DaemonSetList,
+        KeyCode::BackTab => self.mode = AppMode::DeploymentList,
+        _ => {}
+    }
+}
+
+// 处理DaemonSet列表导航
+fn handle_daemonset_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_daemonset_index < self.daemonsets.len().saturating_sub(1) {
+                self.selected_daemonset_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_daemonset_index > 0 {
+                self.selected_daemonset_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.daemonsets.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.daemonsets.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::PVCList,
+        KeyCode::BackTab => self.mode = AppMode::JobList,
+        _ => {}
+    }
+}
+
+// 处理PVC列表导航
+fn handle_pvc_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_pvc_index < self.pvcs.len().saturating_sub(1) {
+                self.selected_pvc_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_pvc_index > 0 {
+                self.selected_pvc_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.pvcs.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.pvcs.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::PVList,
+        KeyCode::BackTab => self.mode = AppMode::DaemonSetList,
+        _ => {}
+    }
+}
+
+// 处理PV列表导航
+fn handle_pv_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_pv_index < self.pvs.len().saturating_sub(1) {
+                self.selected_pv_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_pv_index > 0 {
+                self.selected_pv_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.pvs.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.pvs.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::NodeList,
+        KeyCode::BackTab => self.mode = AppMode::PVCList,
+        _ => {}
+    }
+}
+
+// 处理Node列表导航
+fn handle_node_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_node_index < self.nodes.len().saturating_sub(1) {
+                self.selected_node_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_node_index > 0 {
+                self.selected_node_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.nodes.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.nodes.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::ConfigMapList,
+        KeyCode::BackTab => self.mode = AppMode::PVList,
+        _ => {}
+    }
+}
+
+// 处理ConfigMap列表导航
+fn handle_configmap_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_configmap_index < self.configmaps.len().saturating_sub(1) {
+                self.selected_configmap_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_configmap_index > 0 {
+                self.selected_configmap_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.configmaps.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.configmaps.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('d') | KeyCode::Char('D') => {
+            if !self.configmaps.is_empty() {
+                self.confirm_action = Some(ConfirmAction::DeleteConfigMap {
+                    namespace: self.current_namespace.clone(),
+                    name: self.configmaps[self.selected_configmap_index].name.clone(),
+                });
+                self.mode = AppMode::Confirm;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::SecretList,
+        KeyCode::BackTab => self.mode = AppMode::NodeList,
+        _ => {}
+    }
+}
+
+// 处理Secret列表导航
+fn handle_secret_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_secret_index < self.secrets.len().saturating_sub(1) {
+                self.selected_secret_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_secret_index > 0 {
+                self.selected_secret_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.secrets.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.secrets.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('d') | KeyCode::Char('D') => {
+            if !self.secrets.is_empty() {
+                self.confirm_action = Some(ConfirmAction::DeleteSecret {
+                    namespace: self.current_namespace.clone(),
+                    name: self.secrets[self.selected_secret_index].name.clone(),
+                });
+                self.mode = AppMode::Confirm;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::PodList,
+        KeyCode::BackTab => self.mode = AppMode::ConfigMapList,
+        _ => {}
+    }
+}
+
+// 处理StatefulSet列表导航
+fn handle_statefulset_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_statefulset_index < self.statefulsets.len().saturating_sub(1) {
+                self.selected_statefulset_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_statefulset_index > 0 {
+                self.selected_statefulset_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.statefulsets.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.statefulsets.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::IngressList,
+        KeyCode::BackTab => self.mode = AppMode::ServiceAccountList,
+        _ => {}
+    }
+}
+
+// 处理Ingress列表导航
+fn handle_ingress_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_ingress_index < self.ingresses.len().saturating_sub(1) {
+                self.selected_ingress_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_ingress_index > 0 {
+                self.selected_ingress_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.ingresses.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.ingresses.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::NetworkPolicyList,
+        KeyCode::BackTab => self.mode = AppMode::StatefulSetList,
+        _ => {}
+    }
+}
+
+// 处理NetworkPolicy列表导航
+fn handle_network_policy_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_network_policy_index < self.network_policies.len().saturating_sub(1) {
+                self.selected_network_policy_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_network_policy_index > 0 {
+                self.selected_network_policy_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.network_policies.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.network_policies.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::RoleList,
+        KeyCode::BackTab => self.mode = AppMode::IngressList,
+        _ => {}
+    }
+}
+
+// 处理Role列表导航
+fn handle_role_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_role_index < self.roles.len().saturating_sub(1) {
+                self.selected_role_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_role_index > 0 {
+                self.selected_role_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.roles.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.roles.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::RoleBindingList,
+        KeyCode::BackTab => self.mode = AppMode::NetworkPolicyList,
+        _ => {}
+    }
+}
+
+// 处理RoleBinding列表导航
+fn handle_role_binding_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_role_binding_index < self.role_bindings.len().saturating_sub(1) {
+                self.selected_role_binding_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_role_binding_index > 0 {
+                self.selected_role_binding_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.role_bindings.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.role_bindings.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::ClusterRoleList,
+        KeyCode::BackTab => self.mode = AppMode::RoleList,
+        _ => {}
+    }
+}
+
+// 处理ClusterRole列表导航
+fn handle_cluster_role_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_cluster_role_index < self.cluster_roles.len().saturating_sub(1) {
+                self.selected_cluster_role_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_cluster_role_index > 0 {
+                self.selected_cluster_role_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.cluster_roles.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.cluster_roles.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::ClusterRoleBindingList,
+        KeyCode::BackTab => self.mode = AppMode::RoleBindingList,
+        _ => {}
+    }
+}
+
+// 处理ClusterRoleBinding列表导航
+fn handle_cluster_role_binding_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_cluster_role_binding_index < self.cluster_role_bindings.len().saturating_sub(1) {
+                self.selected_cluster_role_binding_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_cluster_role_binding_index > 0 {
+                self.selected_cluster_role_binding_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.cluster_role_bindings.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.cluster_role_bindings.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::ServiceAccountList,
+        KeyCode::BackTab => self.mode = AppMode::ClusterRoleList,
+        _ => {}
+    }
+}
+
+// 处理ServiceAccount列表导航
+fn handle_service_account_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_service_account_index < self.service_accounts.len().saturating_sub(1) {
+                self.selected_service_account_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_service_account_index > 0 {
+                self.selected_service_account_index -= 1;
+            }
+        }
+        KeyCode::Char(' ') => {
+            if !self.service_accounts.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::Describe;
+                self.describe_content.clear();
+                self.describe_scroll = 0;
+            }
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if !self.service_accounts.is_empty() {
+                self.previous_mode = self.mode;
+                self.mode = AppMode::YamlView;
+                self.yaml_content.clear();
+                self.yaml_scroll = 0;
+            }
+        }
+        KeyCode::Char('/') => {
+            self.search_mode = true;
+            self.mode = AppMode::Search;
+        }
+        KeyCode::Tab => self.mode = AppMode::StatefulSetList,
+        KeyCode::BackTab => self.mode = AppMode::ClusterRoleBindingList,
+        _ => {}
+    }
+}
+
+// 处理日志导航
+fn handle_logs_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if !self.logs.is_empty() && self.logs_scroll < self.logs.len().saturating_sub(1) {
+                self.logs_scroll += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.logs_scroll > 0 {
+                self.logs_scroll -= 1;
+            }
+        }
+        KeyCode::PageDown => {
+            let page_size = 10; // 默认页面大小
+            if !self.logs.is_empty() {
+                self.logs_scroll = (self.logs_scroll + page_size).min(self.logs.len().saturating_sub(1));
+            }
+        }
+        KeyCode::PageUp => {
+            let page_size = 10; // 默认页面大小
+            self.logs_scroll = self.logs_scroll.saturating_sub(page_size);
+        }
+        KeyCode::Char('a') | KeyCode::Char('A') => {
+            // 切换自动滚动
+            self.logs_auto_scroll = !self.logs_auto_scroll;
+            // 如果开启自动滚动，滚动到最新位置
+            if self.logs_auto_scroll && !self.logs.is_empty() {
+                self.logs_scroll = self.logs.len().saturating_sub(1);
+            }
+        }
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            // 切换自动刷新
+            self.logs_auto_refresh = !self.logs_auto_refresh;
+            self.update_refresh_status();
+        }
+        KeyCode::Char('m') | KeyCode::Char('M') => {
+            // 切换鼠标模式（文本选择模式和滚动模式）
+            self.toggle_mouse_mode();
+        }
+        KeyCode::Esc => {
+            self.reset_scroll();
+            self.mode = self.get_previous_mode();
+        }
+        _ => {}
+    }
+}
+
+// 处理Describe视图导航
+fn handle_describe_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            // 向下滚动
+            self.describe_scroll += 1;
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            // 向上滚动
+            self.describe_scroll = self.describe_scroll.saturating_sub(1);
+        }
+        KeyCode::PageDown => {
+            let page_size = 10; // 默认页面大小
+            self.describe_scroll += page_size;
+        }
+        KeyCode::PageUp => {
+            let page_size = 10; // 默认页面大小
+            self.describe_scroll = self.describe_scroll.saturating_sub(page_size);
+        }
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            // 切换自动刷新
+            self.describe_auto_refresh = !self.describe_auto_refresh;
+            self.update_refresh_status();
+        }
+        KeyCode::Char('m') | KeyCode::Char('M') => {
+            // 切换鼠标模式（文本选择模式和滚动模式）
+            self.toggle_mouse_mode();
+        }
+        KeyCode::Esc => {
+            self.reset_scroll();
+            self.mode = self.get_previous_mode();
+        }
+        _ => {}
+    }
+}
+
+// 处理YAML视图导航
+fn handle_yaml_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            // 向下滚动
+            self.yaml_scroll += 1;
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            // 向上滚动
+            self.yaml_scroll = self.yaml_scroll.saturating_sub(1);
+        }
+        KeyCode::PageDown => {
+            let page_size = 10; // 默认页面大小
+            self.yaml_scroll += page_size;
+        }
+        KeyCode::PageUp => {
+            let page_size = 10; // 默认页面大小
+            self.yaml_scroll = self.yaml_scroll.saturating_sub(page_size);
+        }
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            // 切换自动刷新
+            self.yaml_auto_refresh = !self.yaml_auto_refresh;
+            self.update_refresh_status();
+        }
+        KeyCode::Char('m') | KeyCode::Char('M') => {
+            // 切换鼠标模式（文本选择模式和滚动模式）
+            self.toggle_mouse_mode();
+        }
+        KeyCode::Esc => {
+            self.reset_scroll();
+            self.mode = self.get_previous_mode();
+        }
+        _ => {}
+    }
+}
+
+// 处理Top视图导航
+fn handle_top_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if !self.pod_metrics.is_empty() && self.metrics_scroll < self.pod_metrics.len().saturating_sub(1) {
+                self.metrics_scroll += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.metrics_scroll > 0 {
+                self.metrics_scroll -= 1;
+            }
+        }
+        KeyCode::PageDown => {
+            let page_size = 10; // 默认页面大小
+            if !self.pod_metrics.is_empty() {
+                self.metrics_scroll = (self.metrics_scroll + page_size).min(self.pod_metrics.len().saturating_sub(1));
+            }
+        }
+        KeyCode::PageUp => {
+            let page_size = 10; // 默认页面大小
+            self.metrics_scroll = self.metrics_scroll.saturating_sub(page_size);
+        }
+        KeyCode::Esc => {
+            self.reset_scroll();
+            self.mode = self.get_previous_mode();
+        }
+        _ => {}
+    }
+}
+
+// 处理搜索导航
+fn handle_search_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    match key_event.code {
+        KeyCode::Enter => {
+            // 执行搜索
+            self.search_mode = false;
+            self.mode = self.get_previous_mode();
+        }
+        KeyCode::Esc => {
+            // 取消搜索
+            self.search_query.clear();
+            self.search_mode = false;
+            self.mode = self.get_previous_mode();
+        }
+        KeyCode::Backspace => {
+            // 删除最后一个字符
+            self.search_query.pop();
+        }
+        KeyCode::Char(c) => {
+            // 添加字符到搜索查询
+            self.search_query.push(c);
+        }
+        _ => {}
+    }
+}
+
+// 处理确认导航
+fn handle_confirm_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            // 确认操作
+            self.confirm_action = None;
+            self.mode = self.get_previous_mode();
+        }
+        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+            // 取消操作
+            self.confirm_action = None;
+            self.mode = self.get_previous_mode();
+        }
+        _ => {}
+    }
+}
+
+// 处理帮助导航
+fn handle_help_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Esc => {
+            self.mode = self.get_previous_mode();
+        }
+        _ => {}
+    }
+}
+
+// 处理更多资源导航
+fn handle_more_resources_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+    use crossterm::event::KeyCode;
+
+    match key_event.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            if self.selected_more_resource_index < 8 {
+                self.selected_more_resource_index += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if self.selected_more_resource_index > 0 {
+                self.selected_more_resource_index -= 1;
+            }
+        }
+        KeyCode::Char('1') => self.mode = AppMode::PVCList,
+        KeyCode::Char('2') => self.mode = AppMode::PVList,
+        KeyCode::Char('3') => self.mode = AppMode::NodeList,
+        KeyCode::Char('4') => self.mode = AppMode::ConfigMapList,
+        KeyCode::Char('5') => self.mode = AppMode::SecretList,
+        KeyCode::Char('6') => self.mode = AppMode::JobList,
+        KeyCode::Char('7') => self.mode = AppMode::DaemonSetList,
+        KeyCode::Char('8') => self.mode = AppMode::StatefulSetList,
+        KeyCode::Char('9') => self.mode = AppMode::IngressList,
+        KeyCode::Enter => {
+            match self.selected_more_resource_index {
+                0 => self.mode = AppMode::PVCList,
+                1 => self.mode = AppMode::PVList,
+                2 => self.mode = AppMode::NodeList,
+                3 => self.mode = AppMode::ConfigMapList,
+                4 => self.mode = AppMode::SecretList,
+                5 => self.mode = AppMode::JobList,
+                6 => self.mode = AppMode::DaemonSetList,
+                7 => self.mode = AppMode::StatefulSetList,
+                8 => self.mode = AppMode::IngressList,
+                _ => {}
+            }
+        }
+        KeyCode::Esc => {
+            self.reset_scroll();
+            self.mode = self.get_previous_mode();
+        }
+        _ => {}
+    }
+}

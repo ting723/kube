@@ -205,3 +205,60 @@ pub struct ContainerMetrics {
 
 // 类型别名
 pub type PodMetrics = ResourceMetrics;
+
+// 新增资源类型定义
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatefulSet {
+    pub name: String,
+    pub namespace: String,
+    pub ready: String,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Ingress {
+    pub name: String,
+    pub namespace: String,
+    pub hosts: Vec<String>,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkPolicy {
+    pub name: String,
+    pub namespace: String,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Role {
+    pub name: String,
+    pub namespace: String,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoleBinding {
+    pub name: String,
+    pub namespace: String,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterRole {
+    pub name: String,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterRoleBinding {
+    pub name: String,
+    pub age: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceAccount {
+    pub name: String,
+    pub namespace: String,
+    pub age: String,
+}

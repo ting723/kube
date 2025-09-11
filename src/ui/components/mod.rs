@@ -17,3 +17,12 @@ pub mod help;
 pub mod yaml_view;
 pub mod top_view;
 pub mod more_resources;
+// 新增资源类型模块
+pub mod statefulset_list;
+pub mod ingress_list;
+pub mod network_policy_list;
+pub mod role_list;
+pub mod role_binding_list;
+pub mod cluster_role_list;
+pub mod cluster_role_binding_list;
+pub mod service_account_list;

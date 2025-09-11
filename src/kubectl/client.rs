@@ -244,6 +244,167 @@ impl KubectlClient {
         Ok(pvs)
     }
 
+    // 新增资源类型获取方法
+    #[allow(dead_code)]
+    pub async fn get_statefulsets(&self, namespace: &str) -> Result<Vec<StatefulSet>> {
+        let json_output = commands::get_statefulsets(namespace)?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut statefulsets = Vec::new();
+        
+        for item in items {
+            if let Ok(statefulset) = self.parse_statefulset(item) {
+                statefulsets.push(statefulset);
+            }
+        }
+
+        Ok(statefulsets)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_ingresses(&self, namespace: &str) -> Result<Vec<Ingress>> {
+        let json_output = commands::get_ingresses(namespace)?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut ingresses = Vec::new();
+        
+        for item in items {
+            if let Ok(ingress) = self.parse_ingress(item) {
+                ingresses.push(ingress);
+            }
+        }
+
+        Ok(ingresses)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_network_policies(&self, namespace: &str) -> Result<Vec<NetworkPolicy>> {
+        let json_output = commands::get_network_policies(namespace)?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut network_policies = Vec::new();
+        
+        for item in items {
+            if let Ok(network_policy) = self.parse_network_policy(item) {
+                network_policies.push(network_policy);
+            }
+        }
+
+        Ok(network_policies)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_roles(&self, namespace: &str) -> Result<Vec<Role>> {
+        let json_output = commands::get_roles(namespace)?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut roles = Vec::new();
+        
+        for item in items {
+            if let Ok(role) = self.parse_role(item) {
+                roles.push(role);
+            }
+        }
+
+        Ok(roles)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_role_bindings(&self, namespace: &str) -> Result<Vec<RoleBinding>> {
+        let json_output = commands::get_role_bindings(namespace)?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut role_bindings = Vec::new();
+        
+        for item in items {
+            if let Ok(role_binding) = self.parse_role_binding(item) {
+                role_bindings.push(role_binding);
+            }
+        }
+
+        Ok(role_bindings)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_cluster_roles(&self) -> Result<Vec<ClusterRole>> {
+        let json_output = commands::get_cluster_roles()?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut cluster_roles = Vec::new();
+        
+        for item in items {
+            if let Ok(cluster_role) = self.parse_cluster_role(item) {
+                cluster_roles.push(cluster_role);
+            }
+        }
+
+        Ok(cluster_roles)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_cluster_role_bindings(&self) -> Result<Vec<ClusterRoleBinding>> {
+        let json_output = commands::get_cluster_role_bindings()?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut cluster_role_bindings = Vec::new();
+        
+        for item in items {
+            if let Ok(cluster_role_binding) = self.parse_cluster_role_binding(item) {
+                cluster_role_bindings.push(cluster_role_binding);
+            }
+        }
+
+        Ok(cluster_role_bindings)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_service_accounts(&self, namespace: &str) -> Result<Vec<ServiceAccount>> {
+        let json_output = commands::get_service_accounts(namespace)?;
+        let parsed: Value = serde_json::from_str(&json_output)?;
+
+        let items = parsed["items"]
+            .as_array()
+            .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
+
+        let mut service_accounts = Vec::new();
+        
+        for item in items {
+            if let Ok(service_account) = self.parse_service_account(item) {
+                service_accounts.push(service_account);
+            }
+        }
+
+        Ok(service_accounts)
+    }
+
     pub async fn get_pod_logs(&self, namespace: &str, pod_name: &str, lines: u32) -> Result<Vec<String>> {
         let logs = commands::get_pod_logs(namespace, pod_name, lines)?;
         Ok(logs.lines().map(|line| line.to_string()).collect())
@@ -847,6 +1008,138 @@ impl KubectlClient {
             status: pv_status,
             claim,
             storage_class,
+            age,
+        })
+    }
+
+    // 解析StatefulSet
+    fn parse_statefulset(&self, item: &Value) -> Result<StatefulSet> {
+        let metadata = &item["metadata"];
+        let name = metadata["name"].as_str().unwrap_or("Unknown").to_string();
+        let namespace = metadata["namespace"].as_str().unwrap_or("default").to_string();
+        let creation_timestamp = metadata["creationTimestamp"].as_str();
+        let age = self.calculate_age(creation_timestamp);
+        
+        let status = &item["status"];
+        let replicas = status["replicas"].as_u64().unwrap_or(0);
+        let ready_replicas = status["readyReplicas"].as_u64().unwrap_or(0);
+        let ready = format!("{}/{}", ready_replicas, replicas);
+        
+        Ok(StatefulSet {
+            name,
+            namespace,
+            ready,
+            age,
+        })
+    }
+
+    // 解析Ingress
+    fn parse_ingress(&self, item: &Value) -> Result<Ingress> {
+        let metadata = &item["metadata"];
+        let name = metadata["name"].as_str().unwrap_or("Unknown").to_string();
+        let namespace = metadata["namespace"].as_str().unwrap_or("default").to_string();
+        let creation_timestamp = metadata["creationTimestamp"].as_str();
+        let age = self.calculate_age(creation_timestamp);
+        
+        let mut hosts = Vec::new();
+        if let Some(rules) = item["spec"]["rules"].as_array() {
+            for rule in rules {
+                if let Some(host) = rule["host"].as_str() {
+                    hosts.push(host.to_string());
+                }
+            }
+        }
+        
+        Ok(Ingress {
+            name,
+            namespace,
+            hosts,
+            age,
+        })
+    }
+
+    // 解析NetworkPolicy
+    fn parse_network_policy(&self, item: &Value) -> Result<NetworkPolicy> {
+        let metadata = &item["metadata"];
+        let name = metadata["name"].as_str().unwrap_or("Unknown").to_string();
+        let namespace = metadata["namespace"].as_str().unwrap_or("default").to_string();
+        let creation_timestamp = metadata["creationTimestamp"].as_str();
+        let age = self.calculate_age(creation_timestamp);
+        
+        Ok(NetworkPolicy {
+            name,
+            namespace,
+            age,
+        })
+    }
+
+    // 解析Role
+    fn parse_role(&self, item: &Value) -> Result<Role> {
+        let metadata = &item["metadata"];
+        let name = metadata["name"].as_str().unwrap_or("Unknown").to_string();
+        let namespace = metadata["namespace"].as_str().unwrap_or("default").to_string();
+        let creation_timestamp = metadata["creationTimestamp"].as_str();
+        let age = self.calculate_age(creation_timestamp);
+        
+        Ok(Role {
+            name,
+            namespace,
+            age,
+        })
+    }
+
+    // 解析RoleBinding
+    fn parse_role_binding(&self, item: &Value) -> Result<RoleBinding> {
+        let metadata = &item["metadata"];
+        let name = metadata["name"].as_str().unwrap_or("Unknown").to_string();
+        let namespace = metadata["namespace"].as_str().unwrap_or("default").to_string();
+        let creation_timestamp = metadata["creationTimestamp"].as_str();
+        let age = self.calculate_age(creation_timestamp);
+        
+        Ok(RoleBinding {
+            name,
+            namespace,
+            age,
+        })
+    }
+
+    // 解析ClusterRole
+    fn parse_cluster_role(&self, item: &Value) -> Result<ClusterRole> {
+        let metadata = &item["metadata"];
+        let name = metadata["name"].as_str().unwrap_or("Unknown").to_string();
+        let creation_timestamp = metadata["creationTimestamp"].as_str();
+        let age = self.calculate_age(creation_timestamp);
+        
+        Ok(ClusterRole {
+            name,
+            age,
+        })
+    }
+
+    // 解析ClusterRoleBinding
+    fn parse_cluster_role_binding(&self, item: &Value) -> Result<ClusterRoleBinding> {
+        let metadata = &item["metadata"];
+        let name = metadata["name"].as_str().unwrap_or("Unknown").to_string();
+        let creation_timestamp = metadata["creationTimestamp"].as_str();
+        let age = self.calculate_age(creation_timestamp);
+        
+        Ok(ClusterRoleBinding {
+            name,
+            age,
+        })
+    }
+
+    // 解析ServiceAccount
+    fn parse_service_account(&self, item: &Value) -> Result<ServiceAccount> {
+        let metadata = &item["metadata"];
+        let name = metadata["name"].as_str().unwrap_or("Unknown").to_string();
+        let namespace = metadata["namespace"].as_str().unwrap_or("default").to_string();
+        let creation_timestamp = metadata["creationTimestamp"].as_str();
+        let age = self.calculate_age(creation_timestamp);
+        
+        Ok(ServiceAccount {
+            name,
+            namespace,
             age,
         })
     }

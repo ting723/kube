@@ -1,323 +1,1819 @@
-use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent, MouseEvent, MouseEventKind};
+use crossterm::event::KeyEvent;
+use crate::kubectl::types::*;
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone)]
-pub enum ConfirmAction {
-    DeletePod { namespace: String, name: String },
-    #[allow(dead_code)]
-    DeleteService { namespace: String, name: String },
-    #[allow(dead_code)]
-    DeleteConfigMap { namespace: String, name: String },
-    #[allow(dead_code)]
-    DeleteSecret { namespace: String, name: String },
-}
-
+// 应用模式枚举
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppMode {
+    // 资源列表模式
     NamespaceList,
     PodList,
     ServiceList,
     DeploymentList,
     JobList,
+    DaemonSetList,
     PVCList,
     PVList,
     NodeList,
     ConfigMapList,
-    DaemonSetList,
     SecretList,
+    // 新增资源类型
+    StatefulSetList,
+    IngressList,
+    NetworkPolicyList,
+    RoleList,
+    RoleBindingList,
+    ClusterRoleList,
+    ClusterRoleBindingList,
+    ServiceAccountList,
+    
+    // 视图模式
     Logs,
     Describe,
-    #[allow(dead_code)]
+    YamlView,
+    TopView,
+    
+    // 其他模式
     Search,
     Confirm,
     Help,
-    YamlView,
-    TopView,
+    
     // 新增更多资源面板模式
     MoreResources,
 }
 
+// 确认操作枚举
 #[derive(Debug, Clone)]
-pub struct AppState {
-    pub mode: AppMode,
-    pub should_quit: bool,
-    pub current_namespace: String,
-    pub selected_namespace_index: usize,
-    pub selected_pod_index: usize,
-    pub selected_service_index: usize,
-    pub selected_node_index: usize,
-    pub selected_deployment_index: usize,
-    pub selected_job_index: usize,
-    pub selected_daemonset_index: usize,
-    pub selected_configmap_index: usize,
-    pub selected_secret_index: usize,
-    pub selected_pvc_index: usize,
-    pub selected_pv_index: usize,
-    pub namespaces: Vec<String>,
-    pub pods: Vec<crate::kubectl::types::Pod>,
-    pub services: Vec<crate::kubectl::types::Service>,
-    pub nodes: Vec<crate::kubectl::types::Node>,
-    pub deployments: Vec<crate::kubectl::types::Deployment>,
-    pub jobs: Vec<crate::kubectl::types::Job>,
-    pub daemonsets: Vec<crate::kubectl::types::DaemonSet>,
-    pub pvcs: Vec<crate::kubectl::types::PVC>,
-    pub pvs: Vec<crate::kubectl::types::PV>,
-    pub configmaps: Vec<crate::kubectl::types::ConfigMap>,
-    pub secrets: Vec<crate::kubectl::types::Secret>,
-    pub logs: Vec<String>,
-    pub describe_content: String,
-    pub last_update: Instant,
-    pub auto_refresh: bool,
-    pub refresh_interval: Duration,
-    // 滚动相关
-    pub logs_scroll: usize,
-    pub describe_scroll: usize,
-    // 搜索相关
-    pub search_query: String,
-    pub search_mode: bool,
-    pub search_results: Vec<usize>,
-    pub current_search_index: usize,
-    pub previous_mode: AppMode,
-    // 确认对话框
-    pub confirm_action: Option<ConfirmAction>,
-    // 当前执行的命令
-    pub current_command: String,
-    // 日志自动滚动
-    pub logs_auto_scroll: bool,
-    // 日志自动刷新
-    pub logs_auto_refresh: bool,
-    pub logs_refresh_interval: Duration,
-    pub last_logs_refresh: Instant,
-    // 全局刷新状态
-    pub global_refresh_enabled: bool,  // 新增：全局刷新开关
-    pub refresh_status_text: String,   // 新增：刷新状态显示
-    // Describe内容自动刷新
-    pub describe_auto_refresh: bool,   // 新增：describe自动刷新
-    pub last_describe_refresh: Instant, // 新增：describe刷新时间记录
-    // YAML内容自动刷新  
-    pub yaml_auto_refresh: bool,       // 新增：YAML自动刷新
-    pub last_yaml_refresh: Instant,    // 新增：YAML刷新时间记录
-    // 执行操作标志
-    pub pending_exec: Option<String>,
-    // YAML查看内容
-    pub yaml_content: String,
-    pub yaml_scroll: usize,
-    // 鼠标捕获状态
-    pub mouse_capture_enabled: bool,
-    // 双模式切换：在YAML/Describe模式下选择文本选择模式还是滚轮模式
-    pub text_selection_mode: bool,  // true=文本选择模式, false=滚轮模式
-    // 国际化设置
-    pub language_chinese: bool,  // true=中文, false=英文
-    // 资源监控数据
-    pub pod_metrics: Vec<crate::kubectl::types::PodMetrics>,
-    pub metrics_scroll: usize,
-    // 更多资源面板选中索引
-    pub selected_more_resource_index: usize,
+pub enum ConfirmAction {
+    DeletePod { namespace: String, name: String },
+    DeleteService { namespace: String, name: String },
+    DeleteDeployment { namespace: String, name: String },
+    DeleteJob { namespace: String, name: String },
+    DeleteDaemonSet { namespace: String, name: String },
+    DeleteConfigMap { namespace: String, name: String },
+    DeleteSecret { namespace: String, name: String },
+    DeletePVC { namespace: String, name: String },
+    DeletePV { name: String },
+    DeleteStatefulSet { namespace: String, name: String },
+    DeleteIngress { namespace: String, name: String },
+    DeleteNetworkPolicy { namespace: String, name: String },
+    DeleteRole { namespace: String, name: String },
+    DeleteRoleBinding { namespace: String, name: String },
+    DeleteClusterRole { name: String },
+    DeleteClusterRoleBinding { name: String },
+    DeleteServiceAccount { namespace: String, name: String },
 }
 
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            mode: AppMode::NamespaceList,
-            should_quit: false,
-            current_namespace: "default".to_string(),
-            selected_namespace_index: 0,
-            selected_pod_index: 0,
-            selected_service_index: 0,
-            selected_node_index: 0,
-            selected_deployment_index: 0,
-            selected_job_index: 0,
-            selected_daemonset_index: 0,
-            selected_configmap_index: 0,
-            selected_secret_index: 0,
-            selected_pvc_index: 0,
-            selected_pv_index: 0,
-            namespaces: vec!["default".to_string()],
-            pods: Vec::new(),
-            services: Vec::new(),
-            nodes: Vec::new(),
-            deployments: Vec::new(),
-            jobs: Vec::new(),
-            daemonsets: Vec::new(),
-            pvcs: Vec::new(),
-            pvs: Vec::new(),
-            configmaps: Vec::new(),
-            secrets: Vec::new(),
-            logs: Vec::new(),
-            describe_content: String::new(),
-            last_update: Instant::now(),
-            auto_refresh: true,
-            refresh_interval: Duration::from_secs(5),
-            logs_scroll: 0,
-            describe_scroll: 0,
-            search_query: String::new(),
-            search_mode: false,
-            search_results: Vec::new(),
-            current_search_index: 0,
-            previous_mode: AppMode::NamespaceList,
-            confirm_action: None,
-            current_command: String::new(),
-            logs_auto_scroll: true,
-            logs_auto_refresh: true,
-            logs_refresh_interval: Duration::from_secs(2),
-            last_logs_refresh: Instant::now(),
-            // 全局刷新状态
-            global_refresh_enabled: true,
-            refresh_status_text: String::new(),
-            // Describe内容自动刷新
-            describe_auto_refresh: false,  // 默认关闭，避免频繁刷新
-            last_describe_refresh: Instant::now(),
-            // YAML内容自动刷新
-            yaml_auto_refresh: false,      // 默认关闭，避免频繁刷新
-            last_yaml_refresh: Instant::now(),
-            pending_exec: None,
-            // YAML查看内容
-            yaml_content: String::new(),
-            yaml_scroll: 0,
-            // 鼠标捕获状态
-            mouse_capture_enabled: false,
-            // 双模式切换：默认为鼠标滚动模式，方便快速浏览
-            text_selection_mode: false,
-            // 国际化设置：默认中文
-            language_chinese: true,
-            // 资源监控数据
-            pod_metrics: Vec::new(),
-            metrics_scroll: 0,
-            // 更多资源面板选中索引
-            selected_more_resource_index: 0,
-        }
-    }
+// 应用状态结构体
+pub struct AppState {
+    // 命名空间相关
+    pub namespaces: Vec<String>,
+    pub selected_namespace_index: usize,
+    pub current_namespace: String,
+    
+    // Pod相关
+    pub pods: Vec<Pod>,
+    pub selected_pod_index: usize,
+    
+    // Service相关
+    pub services: Vec<Service>,
+    pub selected_service_index: usize,
+    
+    // Deployment相关
+    pub deployments: Vec<Deployment>,
+    pub selected_deployment_index: usize,
+    
+    // Job相关
+    pub jobs: Vec<Job>,
+    pub selected_job_index: usize,
+    
+    // DaemonSet相关
+    pub daemonsets: Vec<DaemonSet>,
+    pub selected_daemonset_index: usize,
+    
+    // PVC相关
+    pub pvcs: Vec<PVC>,
+    pub selected_pvc_index: usize,
+    
+    // PV相关
+    pub pvs: Vec<PV>,
+    pub selected_pv_index: usize,
+    
+    // Node相关
+    pub nodes: Vec<Node>,
+    pub selected_node_index: usize,
+    
+    // ConfigMap相关
+    pub configmaps: Vec<ConfigMap>,
+    pub selected_configmap_index: usize,
+    
+    // Secret相关
+    pub secrets: Vec<Secret>,
+    pub selected_secret_index: usize,
+    
+    // 新增资源类型
+    pub statefulsets: Vec<StatefulSet>,
+    pub selected_statefulset_index: usize,
+    
+    pub ingresses: Vec<Ingress>,
+    pub selected_ingress_index: usize,
+    
+    pub network_policies: Vec<NetworkPolicy>,
+    pub selected_network_policy_index: usize,
+    
+    pub roles: Vec<Role>,
+    pub selected_role_index: usize,
+    
+    pub role_bindings: Vec<RoleBinding>,
+    pub selected_role_binding_index: usize,
+    
+    pub cluster_roles: Vec<ClusterRole>,
+    pub selected_cluster_role_index: usize,
+    
+    pub cluster_role_bindings: Vec<ClusterRoleBinding>,
+    pub selected_cluster_role_binding_index: usize,
+    
+    pub service_accounts: Vec<ServiceAccount>,
+    pub selected_service_account_index: usize,
+    
+    // 日志相关
+    pub logs: Vec<String>,
+    pub logs_scroll: usize,
+    pub logs_auto_scroll: bool,
+    pub logs_auto_refresh: bool,
+    
+    // 描述内容相关
+    pub describe_content: String,
+    pub describe_scroll: usize,
+    
+    // YAML内容相关
+    pub yaml_content: String,
+    pub yaml_scroll: usize,
+    
+    // Top视图相关
+    pub pod_metrics: Vec<PodMetrics>,
+    pub metrics_scroll: usize,
+    
+    // 搜索相关
+    pub search_mode: bool,
+    pub search_query: String,
+    pub search_results: Vec<usize>,
+
+    // 确认操作相关
+    pub confirm_action: Option<ConfirmAction>,
+    
+    // 待执行命令
+    pub pending_exec: Option<String>,
+    
+    // 当前执行的命令
+    pub current_command: String,
+    
+    // 应用模式
+    pub mode: AppMode,
+    pub previous_mode: AppMode,
+    
+    // UI相关
+    pub text_selection_mode: bool,
+    pub language_chinese: bool,
+    pub mouse_capture_enabled: bool,
+    
+    // 刷新相关
+    pub global_refresh_enabled: bool,
+    pub describe_auto_refresh: bool,
+    pub yaml_auto_refresh: bool,
+    pub last_update: Instant,
+    pub refresh_status_text: String,
+    
+    // 更多资源面板相关
+    pub selected_more_resource_index: usize,
+    pub should_quit: bool,
 }
 
 impl AppState {
     pub fn new() -> Self {
-        let mut app = Self::default();
-        // 初始化刷新状态文本
-        app.update_refresh_status();
-        app
-    }
+        Self {
+            namespaces: Vec::new(),
+            selected_namespace_index: 0,
+            current_namespace: String::new(),
+            
+            pods: Vec::new(),
+            selected_pod_index: 0,
+            
+            services: Vec::new(),
+            selected_service_index: 0,
+            
+            deployments: Vec::new(),
+            selected_deployment_index: 0,
+            
+            jobs: Vec::new(),
+            selected_job_index: 0,
+            
+            daemonsets: Vec::new(),
+            selected_daemonset_index: 0,
+            
+            pvcs: Vec::new(),
+            selected_pvc_index: 0,
+            
+            pvs: Vec::new(),
+            selected_pv_index: 0,
+            
+            nodes: Vec::new(),
+            selected_node_index: 0,
+            
+            configmaps: Vec::new(),
+            selected_configmap_index: 0,
+            
+            secrets: Vec::new(),
+            selected_secret_index: 0,
+            
+            statefulsets: Vec::new(),
+            selected_statefulset_index: 0,
+            
+            ingresses: Vec::new(),
+            selected_ingress_index: 0,
+            
+            network_policies: Vec::new(),
+            selected_network_policy_index: 0,
+            
+            roles: Vec::new(),
+            selected_role_index: 0,
+            
+            role_bindings: Vec::new(),
+            selected_role_binding_index: 0,
+            
+            cluster_roles: Vec::new(),
+            selected_cluster_role_index: 0,
+            
+            cluster_role_bindings: Vec::new(),
+            selected_cluster_role_binding_index: 0,
+            
+            service_accounts: Vec::new(),
+            selected_service_account_index: 0,
+            
+            logs: Vec::new(),
+            logs_scroll: 0,
+            logs_auto_scroll: true,
+            logs_auto_refresh: true,
+            
+            describe_content: String::new(),
+            describe_scroll: 0,
+            
+            yaml_content: String::new(),
+            yaml_scroll: 0,
+            
+            pod_metrics: Vec::new(),
+            metrics_scroll: 0,
+            
+            search_mode: false,
+            search_query: String::new(),
+            search_results: Vec::new(),
 
-    pub fn should_refresh(&self) -> bool {
-        self.global_refresh_enabled && self.auto_refresh && self.last_update.elapsed() >= self.refresh_interval
+            confirm_action: None,
+            
+            pending_exec: None,
+            
+            current_command: String::new(),
+            
+            mode: AppMode::NamespaceList,
+            previous_mode: AppMode::NamespaceList,
+            
+            text_selection_mode: false,
+            language_chinese: true,
+            mouse_capture_enabled: false,
+            
+            global_refresh_enabled: true,
+            describe_auto_refresh: false,
+            yaml_auto_refresh: false,
+            last_update: Instant::now(),
+            refresh_status_text: String::new(),
+            
+            selected_more_resource_index: 0,
+            should_quit: false,
+        }
     }
-
-    pub fn should_refresh_logs(&self) -> bool {
-        self.global_refresh_enabled && self.logs_auto_refresh && self.mode == AppMode::Logs 
-            && self.last_logs_refresh.elapsed() >= self.logs_refresh_interval
+    
+    // 重置滚动位置
+    pub fn reset_scroll(&mut self) {
+        self.logs_scroll = 0;
+        self.describe_scroll = 0;
+        self.yaml_scroll = 0;
+        self.metrics_scroll = 0;
     }
-
-    // 新增：判断是否需要刷新describe内容
-    pub fn should_refresh_describe(&self) -> bool {
-        self.global_refresh_enabled && self.describe_auto_refresh && self.mode == AppMode::Describe
-            && self.last_describe_refresh.elapsed() >= self.refresh_interval
+    
+    // 设置当前执行的命令
+    pub fn set_current_command(&mut self, command: &str) {
+        self.current_command = command.to_string();
     }
-
-    // 新增：判断是否需要刷新YAML内容
-    pub fn should_refresh_yaml(&self) -> bool {
-        self.global_refresh_enabled && self.yaml_auto_refresh && self.mode == AppMode::YamlView
-            && self.last_yaml_refresh.elapsed() >= self.refresh_interval
+    
+    // 清除当前执行的命令
+    pub fn clear_current_command(&mut self) {
+        self.current_command.clear();
     }
-
-    // 新增：刷新describe内容时间戳
+    
+    // 刷新数据
+    pub fn refresh_data(&mut self) {
+        self.last_update = Instant::now();
+    }
+    
+    // 刷新日志
+    pub fn refresh_logs(&mut self) {
+        self.last_update = Instant::now();
+    }
+    
+    // 刷新描述内容
     pub fn refresh_describe(&mut self) {
-        self.last_describe_refresh = Instant::now();
+        self.last_update = Instant::now();
     }
-
-    // 新增：刷新YAML内容时间戳
+    
+    // 刷新YAML内容
     pub fn refresh_yaml(&mut self) {
-        self.last_yaml_refresh = Instant::now();
+        self.last_update = Instant::now();
     }
-
-    // 新增：切换全局刷新状态
-    pub fn toggle_global_refresh(&mut self) {
-        self.global_refresh_enabled = !self.global_refresh_enabled;
-        self.update_refresh_status();
+    
+    // 检查是否应该刷新
+    pub fn should_refresh(&self) -> bool {
+        self.global_refresh_enabled && self.last_update.elapsed() > Duration::from_secs(5)
     }
-
-    // 新增：切换describe自动刷新
-    pub fn toggle_describe_refresh(&mut self) {
-        self.describe_auto_refresh = !self.describe_auto_refresh;
-        self.update_refresh_status();
+    
+    // 检查是否应该刷新日志
+    pub fn should_refresh_logs(&self) -> bool {
+        self.logs_auto_refresh && self.last_update.elapsed() > Duration::from_secs(2)
     }
-
-    // 新增：切换YAML自动刷新
-    pub fn toggle_yaml_refresh(&mut self) {
-        self.yaml_auto_refresh = !self.yaml_auto_refresh;
-        self.update_refresh_status();
+    
+    // 检查是否应该刷新描述内容
+    pub fn should_refresh_describe(&self) -> bool {
+        self.describe_auto_refresh && self.last_update.elapsed() > Duration::from_secs(5)
     }
-
-    // 新增：更新刷新状态文本
-    fn update_refresh_status(&mut self) {
-        if !self.global_refresh_enabled {
-            self.refresh_status_text = if self.language_chinese {
-                "[刷新已禁用]".to_string()
-            } else {
-                "[Refresh Disabled]".to_string()
-            };
+    
+    // 检查是否应该刷新YAML内容
+    pub fn should_refresh_yaml(&self) -> bool {
+        self.yaml_auto_refresh && self.last_update.elapsed() > Duration::from_secs(5)
+    }
+    
+    // 更新刷新状态文本
+    pub fn update_refresh_status(&mut self) {
+        let mut status_parts = Vec::new();
+        
+        if self.global_refresh_enabled {
+            status_parts.push("列表");
+        }
+        
+        if self.logs_auto_refresh {
+            status_parts.push("日志");
+        }
+        
+        if self.describe_auto_refresh {
+            status_parts.push("描述");
+        }
+        
+        if self.yaml_auto_refresh {
+            status_parts.push("YAML");
+        }
+        
+        if status_parts.is_empty() {
+            self.refresh_status_text = String::new();
         } else {
-            let mut status_parts = Vec::new();
-            
-            if self.auto_refresh {
-                status_parts.push(if self.language_chinese { "列表" } else { "Lists" });
-            }
-            if self.logs_auto_refresh {
-                status_parts.push(if self.language_chinese { "日志" } else { "Logs" });
-            }
-            if self.describe_auto_refresh {
-                status_parts.push(if self.language_chinese { "描述" } else { "Describe" });
-            }
-            if self.yaml_auto_refresh {
-                status_parts.push("YAML");
-            }
-            
-            if status_parts.is_empty() {
-                self.refresh_status_text = if self.language_chinese {
-                    "[无自动刷新]".to_string()
-                } else {
-                    "[No Auto-refresh]".to_string()
-                };
+            self.refresh_status_text = format!("[自动刷新: {}]", status_parts.join(", "));
+        }
+    }
+    
+    // 获取鼠标模式文本
+    pub fn get_mouse_mode_text(&self) -> String {
+        if self.text_selection_mode {
+            if self.language_chinese {
+                "文本选择模式".to_string()
             } else {
-                let prefix = if self.language_chinese { "[自动刷新: " } else { "[Auto-refresh: " };
-                self.refresh_status_text = format!("{}{} ]", prefix, status_parts.join(", "));
+                "Text Selection Mode".to_string()
             }
+        } else {
+            String::new()
+        }
+    }
+    
+    // 切换鼠标模式
+    pub fn toggle_mouse_mode(&mut self) {
+        self.text_selection_mode = !self.text_selection_mode;
+    }
+    
+    // 检查是否应该启用鼠标捕获
+    pub fn should_enable_mouse_capture(&self) -> bool {
+        // 在文本选择模式下禁用鼠标捕获以允许文本选择
+        // 在Logs模式下，根据text_selection_mode决定是否启用鼠标捕获
+        match self.mode {
+            AppMode::Logs => !self.text_selection_mode,
+            AppMode::Describe => !self.text_selection_mode,
+            AppMode::YamlView => !self.text_selection_mode,
+            _ => true,
+        }
+    }
+    
+    // 获取选中的Pod
+    pub fn get_selected_pod(&self) -> Option<&Pod> {
+        self.pods.get(self.selected_pod_index)
+    }
+    
+    // 获取选中的Service
+    pub fn get_selected_service(&self) -> Option<&Service> {
+        self.services.get(self.selected_service_index)
+    }
+    
+    // 获取选中的Deployment
+    pub fn get_selected_deployment(&self) -> Option<&Deployment> {
+        self.deployments.get(self.selected_deployment_index)
+    }
+    
+    // 获取选中的Job
+    pub fn get_selected_job(&self) -> Option<&Job> {
+        self.jobs.get(self.selected_job_index)
+    }
+    
+    // 获取选中的DaemonSet
+    pub fn get_selected_daemonset(&self) -> Option<&DaemonSet> {
+        self.daemonsets.get(self.selected_daemonset_index)
+    }
+    
+    // 获取选中的PVC
+    pub fn get_selected_pvc(&self) -> Option<&PVC> {
+        self.pvcs.get(self.selected_pvc_index)
+    }
+    
+    // 获取选中的PV
+    pub fn get_selected_pv(&self) -> Option<&PV> {
+        self.pvs.get(self.selected_pv_index)
+    }
+    
+    // 获取选中的Node
+    pub fn get_selected_node(&self) -> Option<&Node> {
+        self.nodes.get(self.selected_node_index)
+    }
+    
+    // 获取选中的ConfigMap
+    pub fn get_selected_configmap(&self) -> Option<&ConfigMap> {
+        self.configmaps.get(self.selected_configmap_index)
+    }
+    
+    // 获取选中的Secret
+    pub fn get_selected_secret(&self) -> Option<&Secret> {
+        self.secrets.get(self.selected_secret_index)
+    }
+    
+    // 获取选中的StatefulSet
+    pub fn get_selected_statefulset(&self) -> Option<&StatefulSet> {
+        self.statefulsets.get(self.selected_statefulset_index)
+    }
+    
+    // 获取选中的Ingress
+    pub fn get_selected_ingress(&self) -> Option<&Ingress> {
+        self.ingresses.get(self.selected_ingress_index)
+    }
+    
+    // 获取选中的NetworkPolicy
+    pub fn get_selected_network_policy(&self) -> Option<&NetworkPolicy> {
+        self.network_policies.get(self.selected_network_policy_index)
+    }
+    
+    // 获取选中的Role
+    pub fn get_selected_role(&self) -> Option<&Role> {
+        self.roles.get(self.selected_role_index)
+    }
+    
+    // 获取选中的RoleBinding
+    pub fn get_selected_role_binding(&self) -> Option<&RoleBinding> {
+        self.role_bindings.get(self.selected_role_binding_index)
+    }
+    
+    // 获取选中的ClusterRole
+    pub fn get_selected_cluster_role(&self) -> Option<&ClusterRole> {
+        self.cluster_roles.get(self.selected_cluster_role_index)
+    }
+    
+    // 获取选中的ClusterRoleBinding
+    pub fn get_selected_cluster_role_binding(&self) -> Option<&ClusterRoleBinding> {
+        self.cluster_role_bindings.get(self.selected_cluster_role_binding_index)
+    }
+    
+    // 获取选中的ServiceAccount
+    pub fn get_selected_service_account(&self) -> Option<&ServiceAccount> {
+        self.service_accounts.get(self.selected_service_account_index)
+    }
+    
+    // 获取前一个模式
+    pub fn get_previous_mode(&self) -> AppMode {
+        self.previous_mode.clone()
+    }
+    
+    // 强制刷新当前模式
+    pub fn force_refresh_current_mode(&mut self) {
+        // 更新时间戳以触发刷新
+        self.last_update = Instant::now().checked_sub(Duration::from_secs(10)).unwrap_or_else(|| Instant::now());
+    }
+    
+    // 处理键盘事件
+    pub fn handle_key_event(&mut self, key_event: KeyEvent) -> anyhow::Result<()> {
+        match self.mode {
+            AppMode::NamespaceList => self.handle_namespace_list_navigation(key_event),
+            AppMode::PodList => self.handle_pod_list_navigation(key_event),
+            AppMode::ServiceList => self.handle_service_list_navigation(key_event),
+            AppMode::DeploymentList => self.handle_deployment_list_navigation(key_event),
+            AppMode::JobList => self.handle_job_list_navigation(key_event),
+            AppMode::DaemonSetList => self.handle_daemonset_list_navigation(key_event),
+            AppMode::PVCList => self.handle_pvc_list_navigation(key_event),
+            AppMode::PVList => self.handle_pv_list_navigation(key_event),
+            AppMode::NodeList => self.handle_node_list_navigation(key_event),
+            AppMode::ConfigMapList => self.handle_configmap_list_navigation(key_event),
+            AppMode::SecretList => self.handle_secret_list_navigation(key_event),
+            // 新增资源类型处理
+            AppMode::StatefulSetList => self.handle_statefulset_list_navigation(key_event),
+            AppMode::IngressList => self.handle_ingress_list_navigation(key_event),
+            AppMode::NetworkPolicyList => self.handle_network_policy_list_navigation(key_event),
+            AppMode::RoleList => self.handle_role_list_navigation(key_event),
+            AppMode::RoleBindingList => self.handle_role_binding_list_navigation(key_event),
+            AppMode::ClusterRoleList => self.handle_cluster_role_list_navigation(key_event),
+            AppMode::ClusterRoleBindingList => self.handle_cluster_role_binding_list_navigation(key_event),
+            AppMode::ServiceAccountList => self.handle_service_account_list_navigation(key_event),
+            // 视图模式处理
+            AppMode::Logs => self.handle_logs_navigation(key_event),
+            AppMode::Describe => self.handle_describe_navigation(key_event),
+            AppMode::YamlView => self.handle_yaml_navigation(key_event),
+            AppMode::TopView => self.handle_top_navigation(key_event),
+            // 其他模式处理
+            AppMode::Search => self.handle_search_navigation(key_event),
+            AppMode::Confirm => self.handle_confirm_navigation(key_event),
+            AppMode::Help => self.handle_help_navigation(key_event),
+            // 新增更多资源面板处理
+            AppMode::MoreResources => self.handle_more_resources_navigation(key_event),
+        }
+        Ok(())
+    }
+    
+    // 处理命名空间列表导航
+    fn handle_namespace_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_namespace_index < self.namespaces.len().saturating_sub(1) {
+                    self.selected_namespace_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_namespace_index > 0 {
+                    self.selected_namespace_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Enter => {
+                if !self.namespaces.is_empty() {
+                    self.current_namespace = self.namespaces[self.selected_namespace_index].clone();
+                    // 切换到Pod列表模式
+                    self.mode = AppMode::PodList;
+                    // 重置所有资源列表的选中索引
+                    self.selected_pod_index = 0;
+                    self.selected_service_index = 0;
+                    self.selected_deployment_index = 0;
+                    self.selected_job_index = 0;
+                    self.selected_daemonset_index = 0;
+                    self.selected_configmap_index = 0;
+                    self.selected_secret_index = 0;
+                    self.selected_pvc_index = 0;
+                    self.selected_pv_index = 0;
+                    self.selected_node_index = 0;
+                    // 重置滚动位置
+                    self.reset_scroll();
+                }
+            }
+            KeyCode::Char('1') => self.mode = AppMode::PodList,
+            KeyCode::Char('2') => self.mode = AppMode::ServiceList,
+            KeyCode::Char('3') => self.mode = AppMode::DeploymentList,
+            KeyCode::Char('4') => self.mode = AppMode::JobList,
+            KeyCode::Char('5') => self.mode = AppMode::DaemonSetList,
+            KeyCode::Char('6') => self.mode = AppMode::ConfigMapList,
+            KeyCode::Char('7') => self.mode = AppMode::SecretList,
+            KeyCode::Char('8') => self.mode = AppMode::MoreResources, // 添加进入更多资源面板的快捷键
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Char('?') => self.mode = AppMode::Help,
+            KeyCode::Tab => self.mode = AppMode::PodList,
+            KeyCode::BackTab => self.mode = AppMode::SecretList,
+            KeyCode::F(1) => self.mode = AppMode::PodList,
+            KeyCode::F(2) => self.mode = AppMode::ServiceList,
+            KeyCode::F(3) => self.mode = AppMode::DeploymentList,
+            KeyCode::F(4) => self.mode = AppMode::JobList,
+            KeyCode::F(5) => self.mode = AppMode::DaemonSetList,
+            KeyCode::F(6) => self.mode = AppMode::ConfigMapList,
+            KeyCode::F(7) => self.mode = AppMode::SecretList,
+            _ => {}
         }
     }
 
-    // 新增：强制刷新当前模式的内容
-    pub fn force_refresh_current_mode(&mut self) {
-        match self.mode {
-            AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList 
-            | AppMode::PVList | AppMode::ConfigMapList | AppMode::SecretList => {
-                // 强制刷新资源列表
-                self.refresh_data();
+    // 处理Pod列表导航
+    fn handle_pod_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_pod_index < self.pods.len().saturating_sub(1) {
+                    self.selected_pod_index += 1;
+                }
             }
-            AppMode::Logs => {
-                // 强制刷新日志
-                self.last_logs_refresh = Instant::now().checked_sub(self.logs_refresh_interval).unwrap_or_else(Instant::now);
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_pod_index > 0 {
+                    self.selected_pod_index -= 1;
+                }
             }
-            AppMode::Describe => {
-                // 强制刷新描述内容
-                self.last_describe_refresh = Instant::now().checked_sub(self.refresh_interval).unwrap_or_else(Instant::now);
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
             }
-            AppMode::YamlView => {
-                // 强制刷新YAML内容
-                self.last_yaml_refresh = Instant::now().checked_sub(self.refresh_interval).unwrap_or_else(Instant::now);
+            KeyCode::Char(' ') => {
+                if !self.pods.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
             }
-            AppMode::TopView => {
-                // 强制刷新资源监控数据
-                self.refresh_data();
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.pods.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('l') | KeyCode::Char('L') => {
+                if !self.pods.is_empty() {
+                    self.mode = AppMode::Logs;
+                    self.logs.clear();
+                    self.logs_scroll = 0;
+                }
+            }
+            KeyCode::Char('t') | KeyCode::Char('T') => {
+                self.mode = AppMode::TopView;
+                self.pod_metrics.clear();
+                self.metrics_scroll = 0;
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.pods.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeletePod {
+                        namespace: self.current_namespace.clone(),
+                        name: self.pods[self.selected_pod_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('e') | KeyCode::Char('E') => {
+                if !self.pods.is_empty() {
+                    let pod_name = self.pods[self.selected_pod_index].name.clone();
+                    self.pending_exec = Some(format!("kubectl exec -it -n {} {} -- sh", self.current_namespace, pod_name));
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::ServiceList,
+            KeyCode::BackTab => self.mode = AppMode::SecretList,
+            _ => {}
+        }
+    }
+
+    // 处理Service列表导航
+    fn handle_service_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_service_index < self.services.len().saturating_sub(1) {
+                    self.selected_service_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_service_index > 0 {
+                    self.selected_service_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.services.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.services.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.services.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteService {
+                        namespace: self.current_namespace.clone(),
+                        name: self.services[self.selected_service_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::DeploymentList,
+            KeyCode::BackTab => self.mode = AppMode::PodList,
+            _ => {}
+        }
+    }
+
+    // 处理Deployment列表导航
+    fn handle_deployment_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_deployment_index < self.deployments.len().saturating_sub(1) {
+                    self.selected_deployment_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_deployment_index > 0 {
+                    self.selected_deployment_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.deployments.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.deployments.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.deployments.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteDeployment {
+                        namespace: self.current_namespace.clone(),
+                        name: self.deployments[self.selected_deployment_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::MoreResources,
+            KeyCode::BackTab => self.mode = AppMode::ServiceList,
+            _ => {}
+        }
+    }
+
+    // 处理Job列表导航
+    fn handle_job_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_job_index < self.jobs.len().saturating_sub(1) {
+                    self.selected_job_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_job_index > 0 {
+                    self.selected_job_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.jobs.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.jobs.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.jobs.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteJob {
+                        namespace: self.current_namespace.clone(),
+                        name: self.jobs[self.selected_job_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::DaemonSetList,
+            KeyCode::BackTab => self.mode = AppMode::DeploymentList,
+            _ => {}
+        }
+    }
+
+    // 处理DaemonSet列表导航
+    fn handle_daemonset_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_daemonset_index < self.daemonsets.len().saturating_sub(1) {
+                    self.selected_daemonset_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_daemonset_index > 0 {
+                    self.selected_daemonset_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.daemonsets.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.daemonsets.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.daemonsets.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteDaemonSet {
+                        namespace: self.current_namespace.clone(),
+                        name: self.daemonsets[self.selected_daemonset_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::PVCList,
+            KeyCode::BackTab => self.mode = AppMode::JobList,
+            _ => {}
+        }
+    }
+
+    // 处理PVC列表导航
+    fn handle_pvc_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_pvc_index < self.pvcs.len().saturating_sub(1) {
+                    self.selected_pvc_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_pvc_index > 0 {
+                    self.selected_pvc_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.pvcs.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.pvcs.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.pvcs.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeletePVC {
+                        namespace: self.current_namespace.clone(),
+                        name: self.pvcs[self.selected_pvc_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::PVList,
+            KeyCode::BackTab => self.mode = AppMode::DaemonSetList,
+            _ => {}
+        }
+    }
+
+    // 处理PV列表导航
+    fn handle_pv_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_pv_index < self.pvs.len().saturating_sub(1) {
+                    self.selected_pv_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_pv_index > 0 {
+                    self.selected_pv_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.pvs.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.pvs.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.pvs.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeletePV {
+                        name: self.pvs[self.selected_pv_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::NodeList,
+            KeyCode::BackTab => self.mode = AppMode::PVCList,
+            _ => {}
+        }
+    }
+
+    // 处理Node列表导航
+    fn handle_node_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_node_index < self.nodes.len().saturating_sub(1) {
+                    self.selected_node_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_node_index > 0 {
+                    self.selected_node_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.nodes.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.nodes.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::ConfigMapList,
+            KeyCode::BackTab => self.mode = AppMode::PVList,
+            _ => {}
+        }
+    }
+
+    // 处理ConfigMap列表导航
+    fn handle_configmap_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_configmap_index < self.configmaps.len().saturating_sub(1) {
+                    self.selected_configmap_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_configmap_index > 0 {
+                    self.selected_configmap_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.configmaps.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.configmaps.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.configmaps.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteConfigMap {
+                        namespace: self.current_namespace.clone(),
+                        name: self.configmaps[self.selected_configmap_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::SecretList,
+            KeyCode::BackTab => self.mode = AppMode::NodeList,
+            _ => {}
+        }
+    }
+
+    // 处理Secret列表导航
+    fn handle_secret_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_secret_index < self.secrets.len().saturating_sub(1) {
+                    self.selected_secret_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_secret_index > 0 {
+                    self.selected_secret_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.secrets.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.secrets.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.secrets.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteSecret {
+                        namespace: self.current_namespace.clone(),
+                        name: self.secrets[self.selected_secret_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::PodList,
+            KeyCode::BackTab => self.mode = AppMode::ConfigMapList,
+            _ => {}
+        }
+    }
+
+    // 处理StatefulSet列表导航
+    fn handle_statefulset_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_statefulset_index < self.statefulsets.len().saturating_sub(1) {
+                    self.selected_statefulset_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_statefulset_index > 0 {
+                    self.selected_statefulset_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.statefulsets.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.statefulsets.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.statefulsets.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteStatefulSet {
+                        namespace: self.current_namespace.clone(),
+                        name: self.statefulsets[self.selected_statefulset_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::IngressList,
+            KeyCode::BackTab => self.mode = AppMode::ServiceAccountList,
+            _ => {}
+        }
+    }
+
+    // 处理Ingress列表导航
+    fn handle_ingress_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_ingress_index < self.ingresses.len().saturating_sub(1) {
+                    self.selected_ingress_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_ingress_index > 0 {
+                    self.selected_ingress_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.ingresses.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.ingresses.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.ingresses.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteIngress {
+                        namespace: self.current_namespace.clone(),
+                        name: self.ingresses[self.selected_ingress_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::NetworkPolicyList,
+            KeyCode::BackTab => self.mode = AppMode::StatefulSetList,
+            _ => {}
+        }
+    }
+
+    // 处理NetworkPolicy列表导航
+    fn handle_network_policy_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_network_policy_index < self.network_policies.len().saturating_sub(1) {
+                    self.selected_network_policy_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_network_policy_index > 0 {
+                    self.selected_network_policy_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.network_policies.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.network_policies.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.network_policies.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteNetworkPolicy {
+                        namespace: self.current_namespace.clone(),
+                        name: self.network_policies[self.selected_network_policy_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::RoleList,
+            KeyCode::BackTab => self.mode = AppMode::IngressList,
+            _ => {}
+        }
+    }
+
+    // 处理Role列表导航
+    fn handle_role_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_role_index < self.roles.len().saturating_sub(1) {
+                    self.selected_role_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_role_index > 0 {
+                    self.selected_role_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.roles.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.roles.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.roles.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteRole {
+                        namespace: self.current_namespace.clone(),
+                        name: self.roles[self.selected_role_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::RoleBindingList,
+            KeyCode::BackTab => self.mode = AppMode::NetworkPolicyList,
+            _ => {}
+        }
+    }
+
+    // 处理RoleBinding列表导航
+    fn handle_role_binding_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_role_binding_index < self.role_bindings.len().saturating_sub(1) {
+                    self.selected_role_binding_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_role_binding_index > 0 {
+                    self.selected_role_binding_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.role_bindings.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.role_bindings.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.role_bindings.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteRoleBinding {
+                        namespace: self.current_namespace.clone(),
+                        name: self.role_bindings[self.selected_role_binding_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::ClusterRoleList,
+            KeyCode::BackTab => self.mode = AppMode::RoleList,
+            _ => {}
+        }
+    }
+
+    // 处理ClusterRole列表导航
+    fn handle_cluster_role_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_cluster_role_index < self.cluster_roles.len().saturating_sub(1) {
+                    self.selected_cluster_role_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_cluster_role_index > 0 {
+                    self.selected_cluster_role_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.cluster_roles.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.cluster_roles.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.cluster_roles.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteClusterRole {
+                        name: self.cluster_roles[self.selected_cluster_role_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::ClusterRoleBindingList,
+            KeyCode::BackTab => self.mode = AppMode::RoleBindingList,
+            _ => {}
+        }
+    }
+
+    // 处理ClusterRoleBinding列表导航
+    fn handle_cluster_role_binding_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_cluster_role_binding_index < self.cluster_role_bindings.len().saturating_sub(1) {
+                    self.selected_cluster_role_binding_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_cluster_role_binding_index > 0 {
+                    self.selected_cluster_role_binding_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.cluster_role_bindings.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.cluster_role_bindings.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.cluster_role_bindings.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteClusterRoleBinding {
+                        name: self.cluster_role_bindings[self.selected_cluster_role_binding_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::ServiceAccountList,
+            KeyCode::BackTab => self.mode = AppMode::ClusterRoleList,
+            _ => {}
+        }
+    }
+
+    // 处理ServiceAccount列表导航
+    fn handle_service_account_list_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_service_account_index < self.service_accounts.len().saturating_sub(1) {
+                    self.selected_service_account_index += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.selected_service_account_index > 0 {
+                    self.selected_service_account_index -= 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 强制刷新当前模式
+                self.force_refresh_current_mode();
+            }
+            KeyCode::Char(' ') => {
+                if !self.service_accounts.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::Describe;
+                    self.describe_content.clear();
+                    self.describe_scroll = 0;
+                }
+            }
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if !self.service_accounts.is_empty() {
+                    self.previous_mode = self.mode.clone();
+                    self.mode = AppMode::YamlView;
+                    self.yaml_content.clear();
+                    self.yaml_scroll = 0;
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                if !self.service_accounts.is_empty() {
+                    self.confirm_action = Some(ConfirmAction::DeleteServiceAccount {
+                        namespace: self.current_namespace.clone(),
+                        name: self.service_accounts[self.selected_service_account_index].name.clone(),
+                    });
+                    self.mode = AppMode::Confirm;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.search_mode = true;
+                self.mode = AppMode::Search;
+            }
+            KeyCode::Tab => self.mode = AppMode::StatefulSetList,
+            KeyCode::BackTab => self.mode = AppMode::ClusterRoleBindingList,
+            _ => {}
+        }
+    }
+
+    // 处理日志导航
+    fn handle_logs_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if !self.logs.is_empty() && self.logs_scroll < self.logs.len().saturating_sub(1) {
+                    self.logs_scroll += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.logs_scroll > 0 {
+                    self.logs_scroll -= 1;
+                }
+            }
+            KeyCode::PageDown => {
+                let page_size = 10; // 默认页面大小
+                if !self.logs.is_empty() {
+                    self.logs_scroll = (self.logs_scroll + page_size).min(self.logs.len().saturating_sub(1));
+                }
+            }
+            KeyCode::PageUp => {
+                let page_size = 10; // 默认页面大小
+                self.logs_scroll = self.logs_scroll.saturating_sub(page_size);
+            }
+            KeyCode::Char('a') | KeyCode::Char('A') => {
+                // 切换自动滚动
+                self.logs_auto_scroll = !self.logs_auto_scroll;
+                // 如果开启自动滚动，滚动到最新位置
+                if self.logs_auto_scroll && !self.logs.is_empty() {
+                    self.logs_scroll = self.logs.len().saturating_sub(1);
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 切换自动刷新
+                self.logs_auto_refresh = !self.logs_auto_refresh;
+                self.update_refresh_status();
+            }
+            KeyCode::Char('m') | KeyCode::Char('M') => {
+                // 切换鼠标模式（文本选择模式和滚动模式）
+                self.toggle_mouse_mode();
+            }
+            KeyCode::Esc => {
+                self.reset_scroll();
+                self.mode = self.get_previous_mode();
             }
             _ => {}
         }
     }
 
-    // 处理更多资源面板的导航
-    pub fn handle_more_resources_navigation(&mut self, key_event: KeyEvent) {
+    // 处理Describe视图导航
+    fn handle_describe_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
         match key_event.code {
             KeyCode::Char('j') | KeyCode::Down => {
-                if self.selected_more_resource_index < 6 {
+                // 向下滚动
+                self.describe_scroll += 1;
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                // 向上滚动
+                self.describe_scroll = self.describe_scroll.saturating_sub(1);
+            }
+            KeyCode::PageDown => {
+                let page_size = 10; // 默认页面大小
+                self.describe_scroll += page_size;
+            }
+            KeyCode::PageUp => {
+                let page_size = 10; // 默认页面大小
+                self.describe_scroll = self.describe_scroll.saturating_sub(page_size);
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 切换自动刷新
+                self.describe_auto_refresh = !self.describe_auto_refresh;
+                self.update_refresh_status();
+            }
+            KeyCode::Char('m') | KeyCode::Char('M') => {
+                // 切换鼠标模式（文本选择模式和滚动模式）
+                self.toggle_mouse_mode();
+            }
+            KeyCode::Esc => {
+                self.reset_scroll();
+                self.mode = self.get_previous_mode();
+            }
+            _ => {}
+        }
+    }
+
+    // 处理YAML视图导航
+    fn handle_yaml_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                // 向下滚动
+                self.yaml_scroll += 1;
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                // 向上滚动
+                self.yaml_scroll = self.yaml_scroll.saturating_sub(1);
+            }
+            KeyCode::PageDown => {
+                let page_size = 10; // 默认页面大小
+                self.yaml_scroll += page_size;
+            }
+            KeyCode::PageUp => {
+                let page_size = 10; // 默认页面大小
+                self.yaml_scroll = self.yaml_scroll.saturating_sub(page_size);
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                // 切换自动刷新
+                self.yaml_auto_refresh = !self.yaml_auto_refresh;
+                self.update_refresh_status();
+            }
+            KeyCode::Char('m') | KeyCode::Char('M') => {
+                // 切换鼠标模式（文本选择模式和滚动模式）
+                self.toggle_mouse_mode();
+            }
+            KeyCode::Esc => {
+                self.reset_scroll();
+                self.mode = self.get_previous_mode();
+            }
+            _ => {}
+        }
+    }
+
+    // 处理Top视图导航
+    fn handle_top_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if !self.pod_metrics.is_empty() && self.metrics_scroll < self.pod_metrics.len().saturating_sub(1) {
+                    self.metrics_scroll += 1;
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                if self.metrics_scroll > 0 {
+                    self.metrics_scroll -= 1;
+                }
+            }
+            KeyCode::PageDown => {
+                let page_size = 10; // 默认页面大小
+                if !self.pod_metrics.is_empty() {
+                    self.metrics_scroll = (self.metrics_scroll + page_size).min(self.pod_metrics.len().saturating_sub(1));
+                }
+            }
+            KeyCode::PageUp => {
+                let page_size = 10; // 默认页面大小
+                self.metrics_scroll = self.metrics_scroll.saturating_sub(page_size);
+            }
+            KeyCode::Esc => {
+                self.reset_scroll();
+                self.mode = self.get_previous_mode();
+            }
+            _ => {}
+        }
+    }
+
+    // 处理搜索导航
+    fn handle_search_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Enter => {
+                // 执行搜索
+                self.search_mode = false;
+                self.mode = self.get_previous_mode();
+            }
+            KeyCode::Esc => {
+                // 取消搜索
+                self.search_query.clear();
+                self.search_mode = false;
+                self.mode = self.get_previous_mode();
+            }
+            KeyCode::Backspace => {
+                // 删除最后一个字符
+                self.search_query.pop();
+            }
+            KeyCode::Char(c) => {
+                // 添加字符到搜索查询
+                self.search_query.push(c);
+            }
+            _ => {}
+        }
+    }
+
+    // 处理确认导航
+    fn handle_confirm_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                // 确认操作
+                self.confirm_action = None;
+                self.mode = self.get_previous_mode();
+            }
+            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                // 取消操作
+                self.confirm_action = None;
+                self.mode = self.get_previous_mode();
+            }
+            _ => {}
+        }
+    }
+
+    // 处理帮助导航
+    fn handle_help_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Esc => {
+                self.mode = self.get_previous_mode();
+            }
+            _ => {}
+        }
+    }
+
+    // 处理更多资源导航
+    fn handle_more_resources_navigation(&mut self, key_event: crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+
+        match key_event.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.selected_more_resource_index < 8 {
                     self.selected_more_resource_index += 1;
                 }
             }
@@ -333,6 +1829,8 @@ impl AppState {
             KeyCode::Char('5') => self.mode = AppMode::SecretList,
             KeyCode::Char('6') => self.mode = AppMode::JobList,
             KeyCode::Char('7') => self.mode = AppMode::DaemonSetList,
+            KeyCode::Char('8') => self.mode = AppMode::StatefulSetList,
+            KeyCode::Char('9') => self.mode = AppMode::IngressList,
             KeyCode::Enter => {
                 match self.selected_more_resource_index {
                     0 => self.mode = AppMode::PVCList,
@@ -342,920 +1840,85 @@ impl AppState {
                     4 => self.mode = AppMode::SecretList,
                     5 => self.mode = AppMode::JobList,
                     6 => self.mode = AppMode::DaemonSetList,
+                    7 => self.mode = AppMode::StatefulSetList,
+                    8 => self.mode = AppMode::IngressList,
                     _ => {}
                 }
             }
-            _ => {}
-        }
-    }
-
-    pub fn refresh_logs(&mut self) {
-        self.last_logs_refresh = Instant::now();
-    }
-
-    pub fn refresh_data(&mut self) {
-        self.last_update = Instant::now();
-    }
-
-    pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        // 处理搜索模式
-        if self.search_mode {
-            return self.handle_search_key_event(key_event);
-        }
-
-        // 处理确认对话框
-        if self.confirm_action.is_some() {
-            return self.handle_confirm_key_event(key_event);
-        }
-
-        // 处理更多资源面板的数字键导航
-        if self.mode == AppMode::MoreResources {
-            self.handle_more_resources_navigation(key_event);
-            return Ok(());
-        }
-
-        match key_event.code {
-            KeyCode::Char('q') => self.should_quit = true,
-            KeyCode::Char('?') => self.mode = AppMode::Help,
             KeyCode::Esc => {
-                match self.mode {
-                    AppMode::Help | AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView | AppMode::MoreResources => {
-                        self.reset_scroll();
-                        self.mode = self.get_previous_mode();
-                    }
-                    AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-                    | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-                    | AppMode::ConfigMapList | AppMode::SecretList => {
-                        self.mode = AppMode::NamespaceList;
-                    }
-                    _ => {}
-                }
-            }
-            // 滚动操作（仅在 Logs、Describe、YamlView 和 TopView 模式下）
-            KeyCode::Char('j') => {
-                match self.mode {
-                    AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
-                        self.scroll_down();
-                    }
-                    _ => self.move_selection_down(), // 在列表模式下正常导航
-                }
-            }
-            KeyCode::Char('k') => {
-                match self.mode {
-                    AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
-                        self.scroll_up();
-                    }
-                    _ => self.move_selection_up(), // 在列表模式下正常导航
-                }
-            }
-            KeyCode::Down => self.move_selection_down(),
-            KeyCode::Up => self.move_selection_up(),
-            KeyCode::Char('h') | KeyCode::Left => self.handle_left_navigation(),
-            KeyCode::Char('l') | KeyCode::Right => self.handle_right_navigation(),
-            KeyCode::PageDown => self.scroll_page_down(),
-            KeyCode::PageUp => self.scroll_page_up(),
-            // 资源操作
-            KeyCode::Enter => self.handle_enter(),
-            KeyCode::Char(' ') => self.handle_describe(), // Space 键查看详情
-            KeyCode::Char('L') => self.handle_logs(),       // L 查看日志
-            KeyCode::Char('D') => self.handle_delete(),     // D 删除（需确认）
-            KeyCode::Char('E') => self.handle_exec(),       // E 进入容器
-            KeyCode::Char('Y') => self.handle_yaml_view(),   // Y 查看YAML配置
-            KeyCode::Char('T') => self.handle_top_view(),    // T 查看资源使用
-            // 搜索
-            KeyCode::Char('/') => self.start_search(),
-            KeyCode::Char('n') => self.search_next(),
-            KeyCode::Char('N') => self.search_previous(),
-            // 自动刷新相关快捷键
-            KeyCode::Char('A') => {
-                match self.mode {
-                    AppMode::Logs => {
-                        self.logs_auto_scroll = !self.logs_auto_scroll;
-                    }
-                    _ => {
-                        // 在其他模式下，A键切换全局刷新
-                        self.toggle_global_refresh();
-                    }
-                }
-            }
-            // 日志自动刷新切换（仅在日志模式下）
-            KeyCode::Char('R') => {
-                match self.mode {
-                    AppMode::Logs => {
-                        self.logs_auto_refresh = !self.logs_auto_refresh;
-                        self.update_refresh_status();
-                    }
-                    AppMode::Describe => {
-                        // 在Describe模式下，R键切换describe自动刷新
-                        self.toggle_describe_refresh();
-                    }
-                    AppMode::YamlView => {
-                        // 在YAML模式下，R键切换YAML自动刷新
-                        self.toggle_yaml_refresh();
-                    }
-                    _ => {
-                        // 在其他模式下，R键手动刷新当前数据
-                        self.force_refresh_current_mode();
-                    }
-                }
-            }
-            // Tab 切换面板
-            KeyCode::Tab => self.switch_panel(),
-            KeyCode::BackTab => self.switch_panel_left(), // Shift+Tab 向后切换
-            // M键在YAML/Describe模式下切换鼠标模式
-            KeyCode::Char('M') | KeyCode::Char('m') => {
-                match self.mode {
-                    AppMode::Describe | AppMode::YamlView | AppMode::Logs => {
-                        self.toggle_mouse_mode();
-                    }
-                    _ => {}
-                }
-            }
-            // I键切换语言（International）
-            KeyCode::Char('I') | KeyCode::Char('i') => {
-                self.toggle_language();
-            }
-            // 功能键快速访问面板
-            KeyCode::F(1) => self.mode = AppMode::NodeList,
-            KeyCode::F(2) => self.mode = AppMode::ConfigMapList,
-            KeyCode::F(3) => self.mode = AppMode::SecretList,
-            KeyCode::F(4) => self.mode = AppMode::JobList,
-            KeyCode::F(5) => self.mode = AppMode::DaemonSetList,
-            KeyCode::F(6) => self.mode = AppMode::MoreResources,
-            KeyCode::F(7) => self.mode = AppMode::Help,
-            _ => {}
-        }
-        Ok(())
-    }
-
-    // 切换鼠标模式（文本选择模式 ↔ 滚轮模式）
-    fn toggle_mouse_mode(&mut self) {
-        self.text_selection_mode = !self.text_selection_mode;
-    }
-
-    // 切换语言（中英文切换）
-    fn toggle_language(&mut self) {
-        self.language_chinese = !self.language_chinese;
-    }
-
-    // 获取当前鼠标模式的显示文本
-    pub fn get_mouse_mode_text(&self) -> &'static str {
-        match self.mode {
-            AppMode::Describe | AppMode::YamlView | AppMode::Logs => {
-                if self.language_chinese {
-                    if self.text_selection_mode {
-                        "文本选择模式" // 可以选中复制文本
-                    } else {
-                        "鼠标滚轮模式" // 可以使用鼠标滚轮
-                    }
-                } else {
-                    if self.text_selection_mode {
-                        "Text Selection Mode" // Can select and copy text
-                    } else {
-                        "Mouse Scroll Mode" // Can use mouse wheel to scroll
-                    }
-                }
-            }
-            _ => "",
-        }
-    }
-
-    fn move_selection_up(&mut self) {
-        match self.mode {
-            AppMode::NamespaceList => {
-                if self.selected_namespace_index > 0 {
-                    self.selected_namespace_index -= 1;
-                }
-            }
-            AppMode::PodList => {
-                if self.selected_pod_index > 0 {
-                    self.selected_pod_index -= 1;
-                }
-            }
-            AppMode::ServiceList => {
-                if self.selected_service_index > 0 {
-                    self.selected_service_index -= 1;
-                }
-            }
-            AppMode::NodeList => {
-                if self.selected_node_index > 0 {
-                    self.selected_node_index -= 1;
-                }
-            }
-            AppMode::ConfigMapList => {
-                if self.selected_configmap_index > 0 {
-                    self.selected_configmap_index -= 1;
-                }
-            }
-            AppMode::SecretList => {
-                if self.selected_secret_index > 0 {
-                    self.selected_secret_index -= 1;
-                }
-            }
-            AppMode::DeploymentList => {
-                if self.selected_deployment_index > 0 {
-                    self.selected_deployment_index -= 1;
-                }
-            }
-            AppMode::JobList => {
-                if self.selected_job_index > 0 {
-                    self.selected_job_index -= 1;
-                }
-            }
-            AppMode::DaemonSetList => {
-                if self.selected_daemonset_index > 0 {
-                    self.selected_daemonset_index -= 1;
-                }
-            }
-            AppMode::PVCList => {
-                if self.selected_pvc_index > 0 {
-                    self.selected_pvc_index -= 1;
-                }
-            }
-            AppMode::PVList => {
-                if self.selected_pv_index > 0 {
-                    self.selected_pv_index -= 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn move_selection_down(&mut self) {
-        match self.mode {
-            AppMode::NamespaceList => {
-                if self.selected_namespace_index + 1 < self.namespaces.len() {
-                    self.selected_namespace_index += 1;
-                }
-            }
-            AppMode::PodList => {
-                if self.selected_pod_index + 1 < self.pods.len() {
-                    self.selected_pod_index += 1;
-                }
-            }
-            AppMode::ServiceList => {
-                if self.selected_service_index + 1 < self.services.len() {
-                    self.selected_service_index += 1;
-                }
-            }
-            AppMode::NodeList => {
-                if self.selected_node_index + 1 < self.nodes.len() {
-                    self.selected_node_index += 1;
-                }
-            }
-            AppMode::ConfigMapList => {
-                if self.selected_configmap_index + 1 < self.configmaps.len() {
-                    self.selected_configmap_index += 1;
-                }
-            }
-            AppMode::SecretList => {
-                if self.selected_secret_index + 1 < self.secrets.len() {
-                    self.selected_secret_index += 1;
-                }
-            }
-            AppMode::DeploymentList => {
-                if self.selected_deployment_index + 1 < self.deployments.len() {
-                    self.selected_deployment_index += 1;
-                }
-            }
-            AppMode::JobList => {
-                if self.selected_job_index + 1 < self.jobs.len() {
-                    self.selected_job_index += 1;
-                }
-            }
-            AppMode::DaemonSetList => {
-                if self.selected_daemonset_index + 1 < self.daemonsets.len() {
-                    self.selected_daemonset_index += 1;
-                }
-            }
-            AppMode::PVCList => {
-                if self.selected_pvc_index + 1 < self.pvcs.len() {
-                    self.selected_pvc_index += 1;
-                }
-            }
-            AppMode::PVList => {
-                if self.selected_pv_index + 1 < self.pvs.len() {
-                    self.selected_pv_index += 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_enter(&mut self) {
-        match self.mode {
-            AppMode::NamespaceList => {
-                if let Some(namespace) = self.namespaces.get(self.selected_namespace_index) {
-                    self.current_namespace = namespace.clone();
-                    self.mode = AppMode::PodList;
-                    self.selected_pod_index = 0;
-                    // 清理所有缓存数据，强制刷新
-                    self.pods.clear();
-                    self.services.clear();
-                    self.deployments.clear();
-                    self.jobs.clear();
-                    self.daemonsets.clear();
-                    self.pvcs.clear();
-                    self.configmaps.clear();
-                    self.secrets.clear();
-                    self.logs.clear();
-                    self.describe_content.clear();
-                    // 重置选中索引
-                    self.selected_service_index = 0;
-                    self.selected_deployment_index = 0;
-                    self.selected_job_index = 0;
-                    self.selected_daemonset_index = 0;
-                    self.selected_configmap_index = 0;
-                    self.selected_secret_index = 0;
-                    self.selected_pvc_index = 0;
-                    self.selected_pv_index = 0;
-                    self.selected_node_index = 0;
-                }
-            }
-            // 在资源列表模式下，Enter键也可以进入Describe模式
-            AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-            | AppMode::ConfigMapList | AppMode::SecretList => {
-                self.handle_describe();
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_left_navigation(&mut self) {
-        match self.mode {
-            AppMode::Logs | AppMode::Describe => {
-                // 在滚动模式下，h 键用于水平滚动（如果需要）
-            }
-            _ => {
-                // 切换到上一个面板
-                self.switch_panel_left();
-            }
-        }
-    }
-
-    fn handle_right_navigation(&mut self) {
-        match self.mode {
-            AppMode::Logs | AppMode::Describe => {
-                // 在滚动模式下，l 键用于水平滚动（如果需要）
-            }
-            _ => {
-                // 切换到下一个面板
-                self.switch_panel_right();
-            }
-        }
-    }
-
-    fn switch_panel(&mut self) {
-        self.switch_panel_right();
-    }
-
-    fn switch_panel_right(&mut self) {
-        match self.mode {
-            AppMode::NamespaceList => self.mode = AppMode::PodList,
-            AppMode::PodList => self.mode = AppMode::ServiceList,
-            AppMode::ServiceList => self.mode = AppMode::DeploymentList,
-            AppMode::DeploymentList => self.mode = AppMode::MoreResources,
-            AppMode::MoreResources => self.mode = AppMode::Help,
-            AppMode::Help => self.mode = AppMode::NamespaceList,
-            _ => {}
-        }
-    }
-
-    fn switch_panel_left(&mut self) {
-        match self.mode {
-            AppMode::NamespaceList => self.mode = AppMode::Help,
-            AppMode::Help => self.mode = AppMode::MoreResources,
-            AppMode::MoreResources => self.mode = AppMode::DeploymentList,
-            AppMode::DeploymentList => self.mode = AppMode::ServiceList,
-            AppMode::ServiceList => self.mode = AppMode::PodList,
-            AppMode::PodList => self.mode = AppMode::NamespaceList,
-            _ => {}
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn get_selected_namespace(&self) -> Option<&String> {
-        self.namespaces.get(self.selected_namespace_index)
-    }
-
-    pub fn get_selected_pod(&self) -> Option<&crate::kubectl::types::Pod> {
-        self.pods.get(self.selected_pod_index)
-    }
-
-    pub fn get_selected_service(&self) -> Option<&crate::kubectl::types::Service> {
-        self.services.get(self.selected_service_index)
-    }
-
-    pub fn get_selected_deployment(&self) -> Option<&crate::kubectl::types::Deployment> {
-        self.deployments.get(self.selected_deployment_index)
-    }
-
-    pub fn get_selected_job(&self) -> Option<&crate::kubectl::types::Job> {
-        self.jobs.get(self.selected_job_index)
-    }
-
-    pub fn get_selected_daemonset(&self) -> Option<&crate::kubectl::types::DaemonSet> {
-        self.daemonsets.get(self.selected_daemonset_index)
-    }
-
-    pub fn get_selected_node(&self) -> Option<&crate::kubectl::types::Node> {
-        self.nodes.get(self.selected_node_index)
-    }
-
-    pub fn get_selected_configmap(&self) -> Option<&crate::kubectl::types::ConfigMap> {
-        self.configmaps.get(self.selected_configmap_index)
-    }
-
-    pub fn get_selected_secret(&self) -> Option<&crate::kubectl::types::Secret> {
-        self.secrets.get(self.selected_secret_index)
-    }
-
-    pub fn get_selected_pvc(&self) -> Option<&crate::kubectl::types::PVC> {
-        self.pvcs.get(self.selected_pvc_index)
-    }
-
-    pub fn get_selected_pv(&self) -> Option<&crate::kubectl::types::PV> {
-        self.pvs.get(self.selected_pv_index)
-    }
-
-    pub fn set_current_command(&mut self, command: &str) {
-        self.current_command = command.to_string();
-    }
-
-    pub fn clear_current_command(&mut self) {
-        self.current_command.clear();
-    }
-
-    // 滚动相关方法
-    fn scroll_up(&mut self) {
-        match self.mode {
-            AppMode::Logs => {
-                if self.logs_scroll > 0 {
-                    self.logs_scroll -= 1;
-                }
-            }
-            AppMode::Describe => {
-                if self.describe_scroll > 0 {
-                    self.describe_scroll -= 1;
-                }
-            }
-            AppMode::YamlView => {
-                if self.yaml_scroll > 0 {
-                    self.yaml_scroll -= 1;
-                }
-            }
-            AppMode::TopView => {
-                if self.metrics_scroll > 0 {
-                    self.metrics_scroll -= 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn scroll_down(&mut self) {
-        match self.mode {
-            AppMode::Logs => {
-                if self.logs_scroll + 1 < self.logs.len() {
-                    self.logs_scroll += 1;
-                }
-            }
-            AppMode::Describe => {
-                let lines: Vec<&str> = self.describe_content.lines().collect();
-                if self.describe_scroll + 1 < lines.len() {
-                    self.describe_scroll += 1;
-                }
-            }
-            AppMode::YamlView => {
-                let lines: Vec<&str> = self.yaml_content.lines().collect();
-                if self.yaml_scroll + 1 < lines.len() {
-                    self.yaml_scroll += 1;
-                }
-            }
-            AppMode::TopView => {
-                if self.metrics_scroll + 1 < self.pod_metrics.len() {
-                    self.metrics_scroll += 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn scroll_page_up(&mut self) {
-        match self.mode {
-            AppMode::Logs => {
-                self.logs_scroll = self.logs_scroll.saturating_sub(10);
-            }
-            AppMode::Describe => {
-                self.describe_scroll = self.describe_scroll.saturating_sub(10);
-            }
-            AppMode::YamlView => {
-                self.yaml_scroll = self.yaml_scroll.saturating_sub(10);
-            }
-            AppMode::TopView => {
-                self.metrics_scroll = self.metrics_scroll.saturating_sub(10);
-            }
-            _ => {}
-        }
-    }
-
-    fn scroll_page_down(&mut self) {
-        match self.mode {
-            AppMode::Logs => {
-                let max_scroll = self.logs.len().saturating_sub(1);
-                self.logs_scroll = (self.logs_scroll + 10).min(max_scroll);
-            }
-            AppMode::Describe => {
-                let lines: Vec<&str> = self.describe_content.lines().collect();
-                let max_scroll = lines.len().saturating_sub(1);
-                self.describe_scroll = (self.describe_scroll + 10).min(max_scroll);
-            }
-            AppMode::YamlView => {
-                let lines: Vec<&str> = self.yaml_content.lines().collect();
-                let max_scroll = lines.len().saturating_sub(1);
-                self.yaml_scroll = (self.yaml_scroll + 10).min(max_scroll);
-            }
-            AppMode::TopView => {
-                let max_scroll = self.pod_metrics.len().saturating_sub(1);
-                self.metrics_scroll = (self.metrics_scroll + 10).min(max_scroll);
-            }
-            _ => {}
-        }
-    }
-
-    fn reset_scroll(&mut self) {
-        self.logs_scroll = 0;
-        self.describe_scroll = 0;
-        self.yaml_scroll = 0;
-        self.metrics_scroll = 0;
-    }
-
-    // 操作相关方法
-    fn handle_describe(&mut self) {
-        match self.mode {
-            AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-            | AppMode::ConfigMapList | AppMode::SecretList => {
-                self.previous_mode = self.mode.clone();
                 self.reset_scroll();
-                // 清理之前的describe内容
-                self.describe_content.clear();
-                self.mode = AppMode::Describe;
-                // 默认为鼠标滚动模式，方便快速浏览内容
-                self.text_selection_mode = false;
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_logs(&mut self) {
-        match self.mode {
-            AppMode::PodList => {
-                self.previous_mode = self.mode.clone();
-                self.reset_scroll();
-                self.mode = AppMode::Logs;
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_delete(&mut self) {
-        match self.mode {
-            AppMode::PodList => {
-                if let Some(pod) = self.get_selected_pod() {
-                    self.confirm_action = Some(ConfirmAction::DeletePod {
-                        namespace: self.current_namespace.clone(),
-                        name: pod.name.clone(),
-                    });
-                    self.mode = AppMode::Confirm;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_exec(&mut self) {
-        match self.mode {
-            AppMode::PodList => {
-                if let Some(pod) = self.get_selected_pod() {
-                    let cmd = format!("kubectl exec -it -n {} {} -- /bin/sh", self.current_namespace, pod.name);
-                    self.set_current_command(&cmd);
-                    self.pending_exec = Some(cmd);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    pub fn get_previous_mode(&self) -> AppMode {
-        match self.mode {
-            AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView | AppMode::MoreResources => {
-                // 从之前记录的模式返回
-                self.previous_mode.clone()
-            }
-            AppMode::Search | AppMode::Confirm => {
-                // 搜索和确认模式需要记住之前的模式
-                self.previous_mode.clone()
-            }
-            _ => AppMode::NamespaceList,
-        }
-    }
-
-    // 搜索相关方法
-    fn start_search(&mut self) {
-        // 只在列表模式下才能搜索
-        match self.mode {
-            AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-            | AppMode::ConfigMapList | AppMode::SecretList => {
-                self.previous_mode = self.mode.clone();
-                self.search_mode = true;
-                self.search_query.clear();
-                self.mode = AppMode::Search;
-            }
-            _ => {}
-        }
-    }
-
-    fn search_next(&mut self) {
-        if !self.search_results.is_empty() {
-            self.current_search_index = (self.current_search_index + 1) % self.search_results.len();
-            self.jump_to_search_result();
-        }
-    }
-
-    fn search_previous(&mut self) {
-        if !self.search_results.is_empty() {
-            self.current_search_index = if self.current_search_index == 0 {
-                self.search_results.len() - 1
-            } else {
-                self.current_search_index - 1
-            };
-            self.jump_to_search_result();
-        }
-    }
-
-    fn jump_to_search_result(&mut self) {
-        if let Some(&index) = self.search_results.get(self.current_search_index) {
-            match self.previous_mode {
-                AppMode::NamespaceList => self.selected_namespace_index = index,
-                AppMode::PodList => self.selected_pod_index = index,
-                AppMode::ServiceList => self.selected_service_index = index,
-                AppMode::NodeList => self.selected_node_index = index,
-                AppMode::DeploymentList => self.selected_deployment_index = index,
-                AppMode::JobList => self.selected_job_index = index,
-                AppMode::DaemonSetList => self.selected_daemonset_index = index,
-                AppMode::PVCList => self.selected_pvc_index = index,
-                AppMode::PVList => self.selected_pv_index = index,
-                AppMode::ConfigMapList => self.selected_configmap_index = index,
-                AppMode::SecretList => self.selected_secret_index = index,
-                _ => {}
-            }
-        }
-    }
-
-    // 搜索事件处理
-    fn handle_search_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        match key_event.code {
-            KeyCode::Esc => {
-                self.search_mode = false;
-                self.search_query.clear();
-                self.search_results.clear();
-                self.mode = self.previous_mode.clone();
-            }
-            KeyCode::Enter => {
-                // 直接跳转到选中的搜索结果，并退出搜索模式
-                if !self.search_results.is_empty() {
-                    self.jump_to_search_result();
-                    // 退出搜索模式，返回到列表模式
-                    self.search_mode = false;
-                    self.mode = self.previous_mode.clone();
-                    // 保留搜索结果以便后续操作
-                }
-            }
-            KeyCode::Backspace => {
-                self.search_query.pop();
-                // 实时搜索
-                self.perform_search();
-            }
-            KeyCode::Down => {
-                // 在搜索结果中向下导航
-                self.search_next();
-            }
-            KeyCode::Up => {
-                // 在搜索结果中向上导航
-                self.search_previous();
-            }
-            // 移除j/k的特殊处理，让它们可以正常输入到搜索框
-            // 用户可以使用方向键或Tab来导航搜索结果
-            KeyCode::Char(c) => {
-                self.search_query.push(c);
-                // 实时搜索
-                self.perform_search();
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    fn perform_search(&mut self) {
-        self.search_results.clear();
-        self.current_search_index = 0;
-
-        let query = self.search_query.to_lowercase();
-        if query.is_empty() {
-            return;
-        }
-
-        match self.previous_mode {
-            AppMode::NamespaceList => {
-                for (index, namespace) in self.namespaces.iter().enumerate() {
-                    if namespace.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::PodList => {
-                for (index, pod) in self.pods.iter().enumerate() {
-                    if pod.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::ServiceList => {
-                for (index, service) in self.services.iter().enumerate() {
-                    if service.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::NodeList => {
-                for (index, node) in self.nodes.iter().enumerate() {
-                    if node.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::DeploymentList => {
-                for (index, deployment) in self.deployments.iter().enumerate() {
-                    if deployment.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::JobList => {
-                for (index, job) in self.jobs.iter().enumerate() {
-                    if job.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::DaemonSetList => {
-                for (index, daemonset) in self.daemonsets.iter().enumerate() {
-                    if daemonset.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::PVCList => {
-                for (index, pvc) in self.pvcs.iter().enumerate() {
-                    if pvc.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::PVList => {
-                for (index, pv) in self.pvs.iter().enumerate() {
-                    if pv.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::ConfigMapList => {
-                for (index, configmap) in self.configmaps.iter().enumerate() {
-                    if configmap.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            AppMode::SecretList => {
-                for (index, secret) in self.secrets.iter().enumerate() {
-                    if secret.name.to_lowercase().contains(&query) {
-                        self.search_results.push(index);
-                    }
-                }
-            }
-            _ => {}
-        }
-
-        if !self.search_results.is_empty() {
-            self.jump_to_search_result();
-        }
-    }
-
-    // 确认对话框事件处理
-    fn handle_confirm_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        match key_event.code {
-            KeyCode::Char('y') | KeyCode::Char('Y') => {
-                // 执行确认操作
-                self.execute_confirm_action();
-                self.confirm_action = None;
-                self.mode = self.get_previous_mode();
-            }
-            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                // 取消操作
-                self.confirm_action = None;
                 self.mode = self.get_previous_mode();
             }
             _ => {}
-        }
-        Ok(())
-    }
-
-    fn execute_confirm_action(&mut self) {
-        if let Some(ref action) = self.confirm_action {
-            match action {
-                ConfirmAction::DeletePod { namespace, name } => {
-                    let cmd = format!("kubectl delete pod -n {} {}", namespace, name);
-                    self.set_current_command(&cmd);
-                    // 这里将在主循环中实际执行删除操作
-                }
-                _ => {
-                    // 其他删除操作的实现
-                }
-            }
-        }
-    }
-
-    // 处理YAML视图
-    fn handle_yaml_view(&mut self) {
-        match self.mode {
-            AppMode::PodList | AppMode::ServiceList | AppMode::DeploymentList | AppMode::JobList |
-            AppMode::DaemonSetList | AppMode::NodeList | AppMode::ConfigMapList | AppMode::SecretList |
-            AppMode::PVCList | AppMode::PVList => {
-                self.previous_mode = self.mode.clone();
-                self.mode = AppMode::YamlView;
-                self.yaml_scroll = 0;
-                // 默认为鼠标滚动模式，方便快速浏览YAML内容
-                self.text_selection_mode = false;
-                // 在主循环中会加载相应的YAML内容
-            }
-            _ => {}
-        }
-    }
-
-    // 处理资源监控视图
-    fn handle_top_view(&mut self) {
-        match self.mode {
-            AppMode::PodList => {
-                self.previous_mode = self.mode.clone();
-                self.mode = AppMode::TopView;
-                self.metrics_scroll = 0;
-                // 在主循环中会加载Pod的资源使用情况
-            }
-            _ => {}
-        }
-    }
-
-    // 检查是否需要鼠标捕获（只在需要滚动的模式下且非文本选择模式下启用）
-    pub fn should_enable_mouse_capture(&self) -> bool {
-        match self.mode {
-            AppMode::Logs | AppMode::TopView => {
-                // 在Logs和TopView模式下，只有非文本选择模式才启用鼠标捕获
-                !self.text_selection_mode
-            }
-            AppMode::Describe | AppMode::YamlView => {
-                // 在Describe和YAML模式下，只有非文本选择模式才启用鼠标捕获
-                !self.text_selection_mode
-            }
-            _ => false,
         }
     }
 
     // 处理鼠标事件
-    pub fn handle_mouse_event(&mut self, mouse_event: MouseEvent) -> Result<()> {
-        // 只在需要滚动的模式下处理滚轮事件
+    pub fn handle_mouse_event(&mut self, mouse_event: crossterm::event::MouseEvent) -> anyhow::Result<()> {
+        use crossterm::event::MouseEventKind;
+
+        // 只在特定模式下处理鼠标滚轮事件
         match self.mode {
             AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
                 match mouse_event.kind {
                     MouseEventKind::ScrollUp => {
-                        self.scroll_up();
+                        // 向上滚动
+                        match self.mode {
+                            AppMode::Logs => {
+                                if self.logs_scroll > 0 {
+                                    self.logs_scroll -= 1;
+                                }
+                            }
+                            AppMode::Describe => {
+                                if self.describe_scroll > 0 {
+                                    self.describe_scroll -= 1;
+                                }
+                            }
+                            AppMode::YamlView => {
+                                if self.yaml_scroll > 0 {
+                                    self.yaml_scroll -= 1;
+                                }
+                            }
+                            AppMode::TopView => {
+                                if self.metrics_scroll > 0 {
+                                    self.metrics_scroll -= 1;
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                     MouseEventKind::ScrollDown => {
-                        self.scroll_down();
+                        // 向下滚动
+                        match self.mode {
+                            AppMode::Logs => {
+                                if !self.logs.is_empty() && self.logs_scroll < self.logs.len().saturating_sub(1) {
+                                    self.logs_scroll += 1;
+                                }
+                            }
+                            AppMode::Describe => {
+                                self.describe_scroll += 1;
+                            }
+                            AppMode::YamlView => {
+                                self.yaml_scroll += 1;
+                            }
+                            AppMode::TopView => {
+                                if !self.pod_metrics.is_empty() && self.metrics_scroll < self.pod_metrics.len().saturating_sub(1) {
+                                    self.metrics_scroll += 1;
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                     _ => {
-                        // 其他鼠标事件（点击、拖拽等）不处理，保持文本选中功能
-                        // 这些事件会被终端正常处理
+                        // 忽略其他鼠标事件（点击、移动等）
                     }
                 }
             }
             _ => {
-                // 在其他模式下，不处理任何鼠标事件
-                // 这样可以保持文本选中功能
+                // 在其他模式下忽略鼠标事件
             }
         }
+
         Ok(())
     }
 }

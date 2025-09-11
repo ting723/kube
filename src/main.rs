@@ -272,6 +272,15 @@ async fn run_app(
                                 }
                             }
                         }
+                        AppMode::NodeList => {
+                            if app.nodes.is_empty() || app.should_refresh() {
+                                app.set_current_command("kubectl get nodes");
+                                if let Ok(nodes) = client.get_nodes().await {
+                                    app.nodes = nodes;
+                                }
+                                app.clear_current_command();
+                            }
+                        }
                         AppMode::Logs => {
                             if let Some(pod) = app.get_selected_pod() {
                                 if app.logs.is_empty() || app.should_refresh() {
@@ -540,6 +549,13 @@ async fn run_app(
                     app.set_current_command(&format!("kubectl get secrets -n {}", app.current_namespace));
                     if let Ok(secrets) = client.get_secrets(&app.current_namespace).await {
                         app.secrets = secrets;
+                    }
+                    app.clear_current_command();
+                }
+                AppMode::NodeList => {
+                    app.set_current_command("kubectl get nodes");
+                    if let Ok(nodes) = client.get_nodes().await {
+                        app.nodes = nodes;
                     }
                     app.clear_current_command();
                 }

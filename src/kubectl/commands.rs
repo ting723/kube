@@ -366,3 +366,126 @@ pub fn get_top_pod(namespace: &str, pod_name: &str) -> Result<String> {
     execute_kubectl(&["top", "pod", "-n", namespace, pod_name, "--containers", "--no-headers"])
         .map_err(|e| anyhow!("kubectl top failed: {}. Note: metrics-server might not be installed.", e))
 }
+
+// 新增资源获取命令
+#[allow(dead_code)]
+pub fn get_statefulsets(namespace: &str) -> Result<String> {
+    execute_kubectl(&["get", "statefulsets", "-n", namespace, "-o", "json"])
+}
+
+#[allow(dead_code)]
+pub fn get_ingresses(namespace: &str) -> Result<String> {
+    execute_kubectl(&["get", "ingresses", "-n", namespace, "-o", "json"])
+}
+
+#[allow(dead_code)]
+pub fn get_network_policies(namespace: &str) -> Result<String> {
+    execute_kubectl(&["get", "networkpolicies", "-n", namespace, "-o", "json"])
+}
+
+#[allow(dead_code)]
+pub fn get_roles(namespace: &str) -> Result<String> {
+    execute_kubectl(&["get", "roles", "-n", namespace, "-o", "json"])
+}
+
+#[allow(dead_code)]
+pub fn get_role_bindings(namespace: &str) -> Result<String> {
+    execute_kubectl(&["get", "rolebindings", "-n", namespace, "-o", "json"])
+}
+
+#[allow(dead_code)]
+pub fn get_cluster_roles() -> Result<String> {
+    execute_kubectl(&["get", "clusterroles", "-o", "json"])
+}
+
+#[allow(dead_code)]
+pub fn get_cluster_role_bindings() -> Result<String> {
+    execute_kubectl(&["get", "clusterrolebindings", "-o", "json"])
+}
+
+#[allow(dead_code)]
+pub fn get_service_accounts(namespace: &str) -> Result<String> {
+    execute_kubectl(&["get", "serviceaccounts", "-n", namespace, "-o", "json"])
+}
+
+// 新增DESCRIBE命令
+#[allow(dead_code)]
+pub fn describe_statefulset(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["describe", "statefulset", "-n", namespace, name])
+}
+
+#[allow(dead_code)]
+pub fn describe_ingress(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["describe", "ingress", "-n", namespace, name])
+}
+
+#[allow(dead_code)]
+pub fn describe_network_policy(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["describe", "networkpolicy", "-n", namespace, name])
+}
+
+#[allow(dead_code)]
+pub fn describe_role(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["describe", "role", "-n", namespace, name])
+}
+
+#[allow(dead_code)]
+pub fn describe_role_binding(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["describe", "rolebinding", "-n", namespace, name])
+}
+
+#[allow(dead_code)]
+pub fn describe_cluster_role(name: &str) -> Result<String> {
+    execute_kubectl(&["describe", "clusterrole", name])
+}
+
+#[allow(dead_code)]
+pub fn describe_cluster_role_binding(name: &str) -> Result<String> {
+    execute_kubectl(&["describe", "clusterrolebinding", name])
+}
+
+#[allow(dead_code)]
+pub fn describe_service_account(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["describe", "serviceaccount", "-n", namespace, name])
+}
+
+// 新增YAML命令
+#[allow(dead_code)]
+pub fn get_statefulset_yaml(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["get", "statefulset", "-n", namespace, name, "-o", "yaml"])
+}
+
+#[allow(dead_code)]
+pub fn get_ingress_yaml(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["get", "ingress", "-n", namespace, name, "-o", "yaml"])
+}
+
+#[allow(dead_code)]
+pub fn get_network_policy_yaml(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["get", "networkpolicy", "-n", namespace, name, "-o", "yaml"])
+}
+
+#[allow(dead_code)]
+pub fn get_role_yaml(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["get", "role", "-n", namespace, name, "-o", "yaml"])
+}
+
+#[allow(dead_code)]
+pub fn get_role_binding_yaml(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["get", "rolebinding", "-n", namespace, name, "-o", "yaml"])
+}
+
+#[allow(dead_code)]
+pub fn get_cluster_role_yaml(name: &str) -> Result<String> {
+    execute_kubectl(&["get", "clusterrole", name, "-o", "yaml"])
+}
+
+#[allow(dead_code)]
+pub fn get_cluster_role_binding_yaml(name: &str) -> Result<String> {
+    execute_kubectl(&["get", "clusterrolebinding", name, "-o", "yaml"])
+}
+
+#[allow(dead_code)]
+pub fn get_service_account_yaml(namespace: &str, name: &str) -> Result<String> {
+    execute_kubectl(&["get", "serviceaccount", "-n", namespace, name, "-o", "yaml"])
+}

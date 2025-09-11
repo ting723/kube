@@ -49,6 +49,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(node.age.clone()),
                 Cell::from(node.version.clone()),
                 Cell::from(node.internal_ip.clone().unwrap_or_else(|| "<none>".to_string())),
+                Cell::from(node.external_ip.clone().unwrap_or_else(|| "<none>".to_string())),
+                Cell::from(node.os_image.clone().unwrap_or_else(|| "<none>".to_string())),
+                Cell::from(node.kernel_version.clone().unwrap_or_else(|| "<none>".to_string())),
+                Cell::from(node.container_runtime.clone().unwrap_or_else(|| "<none>".to_string())),
             ]).style(style)
         })
         .collect();
@@ -56,16 +60,31 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let table = Table::new(
         rows,
         [
-            Constraint::Percentage(25),
-            Constraint::Percentage(15),
-            Constraint::Percentage(20),
-            Constraint::Percentage(10),
-            Constraint::Percentage(15),
-            Constraint::Percentage(15),
+            Constraint::Percentage(15), // Name
+            Constraint::Percentage(10), // Status
+            Constraint::Percentage(10), // Roles
+            Constraint::Percentage(5),  // Age
+            Constraint::Percentage(10), // Version
+            Constraint::Percentage(10), // Internal-IP
+            Constraint::Percentage(10), // External-IP
+            Constraint::Percentage(10), // OS Image
+            Constraint::Percentage(10), // Kernel Version
+            Constraint::Percentage(10), // Container Runtime
         ]
     )
         .header(
-            Row::new(vec!["Name", "Status", "Roles", "Age", "Version", "Internal-IP"])
+            Row::new(vec![
+                "Name", 
+                "Status", 
+                "Roles", 
+                "Age", 
+                "Version", 
+                "Internal-IP", 
+                "External-IP", 
+                "OS Image", 
+                "Kernel", 
+                "Runtime"
+            ])
                 .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
         )
         .block(

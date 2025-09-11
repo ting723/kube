@@ -18,9 +18,9 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
 
     // 标题说明
     let title_text = if app.language_chinese {
-        "更多资源 - 使用数字键 1-7 快速访问资源类型"
+        "更多资源 - 使用数字键 1-9 快速访问资源类型"
     } else {
-        "More Resources - Use number keys 1-7 to quickly access resource types"
+        "More Resources - Use number keys 1-9 to quickly access resource types"
     };
     
     let title = Paragraph::new(title_text)
@@ -39,6 +39,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             ListItem::new("5. Secrets - 密钥管理"),
             ListItem::new("6. Jobs - 任务管理"),
             ListItem::new("7. DaemonSets - 守护进程集"),
+            ListItem::new("8. StatefulSets - 有状态应用集"),
+            ListItem::new("9. Ingresses - 入口管理"),
         ]
     } else {
         vec![
@@ -49,6 +51,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             ListItem::new("5. Secrets - Secret Management"),
             ListItem::new("6. Jobs - Job Management"),
             ListItem::new("7. DaemonSets - DaemonSet Management"),
+            ListItem::new("8. StatefulSets - Stateful Application Sets"),
+            ListItem::new("9. Ingresses - Ingress Management"),
         ]
     };
 

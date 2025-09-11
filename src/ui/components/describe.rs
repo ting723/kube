@@ -104,7 +104,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         return;
     }
 
-    // 将内容按行分割并应用语法高亮
+    // 将内容按行分割并添加行号
     let lines: Vec<&str> = app.describe_content.lines().collect();
     let visible_height = area.height.saturating_sub(2) as usize;
     let total_lines = lines.len();
@@ -113,10 +113,17 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let start_index = app.describe_scroll;
     let end_index = (start_index + visible_height).min(total_lines);
     
-    // 创建带语法高亮的可见内容项
+    // 创建带行号和语法高亮的可见内容项
     let visible_lines: Vec<ListItem> = lines[start_index..end_index]
         .iter()
-        .map(|line| ListItem::new(highlight_yaml_line(line)))
+        .enumerate()
+        .map(|(i, line)| {
+            let line_number = start_index + i + 1;
+            let numbered_line = format!("[{:>4}] {}", line_number, line);
+            // 创建一个新的字符串来避免借用问题
+            let highlighted_line = highlight_yaml_line(&numbered_line);
+            ListItem::new(highlighted_line)
+        })
         .collect();
 
     let mut list_state = ListState::default();
@@ -153,7 +160,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
 }
 
 // YAML语法高亮函数
-fn highlight_yaml_line(line: &str) -> Line<'_> {
+fn highlight_yaml_line(line: &str) -> Line<'static> {
     let trimmed = line.trim_start();
     let indent = line.len() - trimmed.len();
     
@@ -166,12 +173,12 @@ fn highlight_yaml_line(line: &str) -> Line<'_> {
     // 检查不同的YAML语法元素
     if trimmed.starts_with('#') {
         // 注释行
-        spans.push(Span::styled(trimmed, Style::default().fg(Color::Green)));
+        spans.push(Span::styled(trimmed.to_string(), Style::default().fg(Color::Green)));
     } else if trimmed.starts_with('-') {
         // 列表项
-        spans.push(Span::styled("-", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)));
+        spans.push(Span::styled("-".to_string(), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)));
         if trimmed.len() > 1 {
-            spans.push(Span::styled(&trimmed[1..], Style::default().fg(Color::White)));
+            spans.push(Span::styled(trimmed[1..].to_string(), Style::default().fg(Color::White)));
         }
     } else if let Some(colon_pos) = trimmed.find(':') {
         // 键值对
@@ -179,11 +186,11 @@ fn highlight_yaml_line(line: &str) -> Line<'_> {
         let rest = &trimmed[colon_pos..];
         
         // 高亮键名
-        spans.push(Span::styled(key, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+        spans.push(Span::styled(key.to_string(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
         
         if rest.len() > 1 {
             // 冒号
-            spans.push(Span::styled(":", Style::default().fg(Color::Cyan)));
+            spans.push(Span::styled(":".to_string(), Style::default().fg(Color::Cyan)));
             
             let value = &rest[1..].trim_start();
             if !value.is_empty() {
@@ -207,7 +214,7 @@ fn highlight_yaml_line(line: &str) -> Line<'_> {
             }
         } else {
             // 只有冒号，可能是对象开始
-            spans.push(Span::styled(":", Style::default().fg(Color::Cyan)));
+            spans.push(Span::styled(":".to_string(), Style::default().fg(Color::Cyan)));
         }
     } else if trimmed.starts_with("Name:") || 
               trimmed.starts_with("Namespace:") ||
@@ -220,17 +227,37 @@ fn highlight_yaml_line(line: &str) -> Line<'_> {
         if let Some(colon_pos) = trimmed.find(':') {
             let field = &trimmed[..colon_pos];
             let rest = &trimmed[colon_pos..];
-            spans.push(Span::styled(field, Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)));
-            spans.push(Span::styled(rest, Style::default().fg(Color::White)));
+            spans.push(Span::styled(field.to_string(), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)));
+            spans.push(Span::styled(rest.to_string(), Style::default().fg(Color::White)));
         } else {
-            spans.push(Span::styled(trimmed, Style::default().fg(Color::White)));
+            spans.push(Span::styled(trimmed.to_string(), Style::default().fg(Color::White)));
         }
     } else if trimmed.starts_with("====") || trimmed.starts_with("----") {
-        // 분隔선
-        spans.push(Span::styled(trimmed, Style::default().fg(Color::Gray)));
+        // 分隔线
+        spans.push(Span::styled(trimmed.to_string(), Style::default().fg(Color::Gray)));
+    } else if trimmed.starts_with("[") && trimmed.contains("]") {
+        // 行号格式 [   1]
+        if let Some(end_bracket) = trimmed.find(']') {
+            let number_part = &trimmed[1..end_bracket];
+            if number_part.trim().parse::<usize>().is_ok() {
+                // 这是行号部分
+                spans.push(Span::styled(trimmed[..end_bracket+1].to_string(), Style::default().fg(Color::Gray)));
+                // 剩余部分应用正常高亮
+                if trimmed.len() > end_bracket + 1 {
+                    let remaining = &trimmed[end_bracket + 1..];
+                    spans.push(Span::styled(remaining.to_string(), Style::default().fg(Color::White)));
+                }
+            } else {
+                // 普通文本
+                spans.push(Span::styled(trimmed.to_string(), Style::default().fg(Color::White)));
+            }
+        } else {
+            // 普通文本
+            spans.push(Span::styled(trimmed.to_string(), Style::default().fg(Color::White)));
+        }
     } else {
-        // 일반 텍스트
-        spans.push(Span::styled(trimmed, Style::default().fg(Color::White)));
+        // 普通文本
+        spans.push(Span::styled(trimmed.to_string(), Style::default().fg(Color::White)));
     }
     
     Line::from(spans)
