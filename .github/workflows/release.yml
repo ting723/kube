@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: 构建和发布
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 安装 Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: 安装 musl 工具链
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          rustup target add ${{ matrix.target }}
+
+      - name: Rust 缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 获取版本号
+        id: get_version
+        run: |
+          version=$(grep -m 1 "^version" Cargo.toml | cut -d '"' -f 2)
+          echo "VERSION=$version" >> $GITHUB_ENV
+
+      - name: 代码格式检查
+        run: cargo fmt -- --check
+
+      - name: 代码检查
+        run: cargo clippy -- -D warnings
+
+      - name: 运行测试
+        run: cargo test
+
+      - name: 构建项目
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: 验证静态链接
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          ldd target/${{ matrix.target }}/release/kube-tui || echo "Binary is statically linked"
+
+      - name: 打包产物
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/kube-tui dist/
+          cp README.md dist/
+          cd dist
+          tar -czf kube-tui-${{ matrix.target }}.tar.gz kube-tui README.md
+
+      - name: 获取上次 Release 版本号
+        id: last_release
+        run: |
+          PREV_VERSION=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
+          | jq -r ".tag_name" | sed "s/v//")
+          if [ "$PREV_VERSION" = "null" ] || [ -z "$PREV_VERSION" ]; then
+            PREV_VERSION="0.0.0"
+          fi
+          echo "PREV_VERSION=$PREV_VERSION" >> $GITHUB_ENV
+
+      - name: 生成变更日志
+        id: changelog
+        run: |
+          echo "## What's Changed
+
+* 添加 GitHub Actions 自动构建和发布功能
+* 支持多平台构建 (Linux, macOS)
+* Linux 版本使用 musl 工具链编译，实现纯静态链接，不依赖 glibc
+
+**完整变更日志:** https://github.com/${{ github.repository }}/compare/v${{ env.PREV_VERSION }}...v${{ env.VERSION }}" > CHANGELOG.md
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          cat CHANGELOG.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: 创建 Release
+        if: github.ref == 'refs/heads/master'
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          tag_name: v${{ env.VERSION }}
+          release_name: Release v${{ env.VERSION }}
+          body: ${{ env.CHANGELOG }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 上传构建产物
+        if: github.ref == 'refs/heads/master'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/kube-tui-${{ matrix.target }}.tar.gz
+          asset_name: kube-tui-${{ matrix.target }}.tar.gz
+          asset_content_type: application/gzip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
