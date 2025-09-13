@@ -2,88 +2,45 @@ name: Release
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
   release:
     name: 构建和发布
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-          - target: x86_64-apple-darwin
-            os: macos-latest
-          - target: aarch64-apple-darwin
-            os: macos-latest
-
+    runs-on: ubuntu-latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v3
 
-      - name: 安装 Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-
-      - name: 安装 musl 工具链
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y musl-tools
-          rustup target add ${{ matrix.target }}
-
-      - name: Rust 缓存
-        uses: Swatinem/rust-cache@v2
-
       - name: 获取版本号
         id: get_version
         run: |
-          version=$(grep -m 1 "^version" Cargo.toml | cut -d '"' -f 2)
-          echo "VERSION=$version" >> $GITHUB_ENV
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - name: 代码格式检查
-        run: cargo fmt -- --check
+      - name: Rust Release binary for Linux
+        uses: rust-build/rust-build.action@v1.4.5
+        with:
+          RUSTTARGET: x86_64-unknown-linux-musl
+          EXTRA_FILES: README.md
+          ARCHIVE_TYPES: tar.gz
+          ARCHIVE_NAME: kube-tui-linux-amd64.tar.gz
+          TOOLCHAIN_VERSION: stable
+          UPLOAD_MODE: none
+          STATIC_LINKING: true
 
-      - name: 代码检查
-        run: cargo clippy -- -D warnings
-
-      - name: 运行测试
-        run: cargo test
-
-      - name: 构建项目
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: 验证静态链接
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: |
-          ldd target/${{ matrix.target }}/release/kube-tui || echo "Binary is statically linked"
-
-      - name: 打包产物
-        run: |
-          mkdir -p dist
-          cp target/${{ matrix.target }}/release/kube-tui dist/
-          cp README.md dist/
-          cd dist
-          tar -czf kube-tui-${{ matrix.target }}.tar.gz kube-tui README.md
-
-      - name: 获取上次 Release 版本号
-        id: last_release
-        run: |
-          PREV_VERSION=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
-          | jq -r ".tag_name" | sed "s/v//")
-          if [ "$PREV_VERSION" = "null" ] || [ -z "$PREV_VERSION" ]; then
-            PREV_VERSION="0.0.0"
-          fi
-          echo "PREV_VERSION=$PREV_VERSION" >> $GITHUB_ENV
-
-      - name: 生成变更日志
-        id: changelog
-        run: |
-          echo "## What's Changed
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            kube-tui-linux-amd64.tar.gz
+            kube-tui-macos-apple-silicon.tar.gz
+          tag_name: ${{ env.VERSION }}
+          name: kube-tui ${{ env.VERSION }}
+          body: |
+            ## What's Changed
+            
+            * 自动化发布
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
