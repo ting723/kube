@@ -35,7 +35,6 @@ jobs:
         with:
           files: |
             kube-tui-linux-amd64.tar.gz
-            kube-tui-macos-apple-silicon.tar.gz
           tag_name: ${{ env.VERSION }}
           name: kube-tui ${{ env.VERSION }}
           body: |
