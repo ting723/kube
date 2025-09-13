@@ -87,36 +87,3 @@ jobs:
         id: changelog
         run: |
           echo "## What's Changed
-
-* 添加 GitHub Actions 自动构建和发布功能
-* 支持多平台构建 (Linux, macOS)
-* Linux 版本使用 musl 工具链编译，实现纯静态链接，不依赖 glibc
-
-**完整变更日志:** https://github.com/${{ github.repository }}/compare/v${{ env.PREV_VERSION }}...v${{ env.VERSION }}" > CHANGELOG.md
-          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-          cat CHANGELOG.md >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: 创建 Release
-        if: github.ref == 'refs/heads/master'
-        uses: actions/create-release@v1
-        id: create_release
-        with:
-          tag_name: v${{ env.VERSION }}
-          release_name: Release v${{ env.VERSION }}
-          body: ${{ env.CHANGELOG }}
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 上传构建产物
-        if: github.ref == 'refs/heads/master'
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/kube-tui-${{ matrix.target }}.tar.gz
-          asset_name: kube-tui-${{ matrix.target }}.tar.gz
-          asset_content_type: application/gzip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
