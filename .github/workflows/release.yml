@@ -54,34 +54,44 @@ jobs:
               ;;
           esac
 
-      - name: Prepare artifacts
+      # 针对Windows使用PowerShell语法
+      - name: Prepare artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # 创建临时目录
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          
+          # 复制二进制文件到临时目录
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}" -Destination "artifacts/"
+
+      # 针对类Unix系统使用Bash语法
+      - name: Prepare artifacts (Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
         run: |
           # 创建临时目录
           mkdir -p artifacts
           
           # 复制二进制文件到临时目录
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
-          else
-            cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
-          fi
+          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4  # 升级到v4版本
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
           path: artifacts/${{ matrix.artifact_name }}
-          if-no-files-found: error  # 新增配置，文件不存在时抛出错误
+          if-no-files-found: error
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4  # 升级到v4版本
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: false  # 保持每个artifact在单独目录
+          merge-multiple: false
 
       - name: Create release
         id: create_release
