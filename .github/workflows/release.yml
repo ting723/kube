@@ -1,45 +1,113 @@
-name: Release
+name: Build and Release Rust CLI Tool
 
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
+      - 'v*'  # 当推送类似v1.0.0的标签时触发
 
 jobs:
+  build:
+    name: Build for ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact_name: kube-tui
+            asset_name: kube-tui-linux-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: kube-tui
+            asset_name: kube-tui-macos-aarch64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: kube-tui.exe
+            asset_name: kube-tui-windows-x86_64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Install musl tools (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Strip binary (non-Windows)
+        if: matrix.os != 'windows-latest'
+        run: |
+          # 安装strip工具(如果需要)
+          case ${{ matrix.target }} in
+            x86_64-unknown-linux-musl)
+              strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+              ;;
+            aarch64-apple-darwin)
+              strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+              ;;
+          esac
+
+      - name: Prepare artifacts
+        run: |
+          # 创建临时目录
+          mkdir -p artifacts
+          
+          # 复制二进制文件到临时目录
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
+          else
+            cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.asset_name }}
+          path: artifacts/${{ matrix.artifact_name }}
+
   release:
-    name: 构建和发布
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v3
-
-      - name: 获取版本号
-        id: get_version
-        run: |
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-      - name: Rust Release binary for Linux
-        uses: rust-build/rust-build.action@v1.4.5
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
         with:
-          RUSTTARGET: x86_64-unknown-linux-musl
-          EXTRA_FILES: README.md
-          ARCHIVE_TYPES: tar.gz
-          ARCHIVE_NAME: kube-tui-linux-amd64.tar.gz
-          TOOLCHAIN_VERSION: stable
-          UPLOAD_MODE: none
-          STATIC_LINKING: true
+          path: artifacts
 
-      - name: 创建 Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            kube-tui-linux-amd64.tar.gz
-          tag_name: ${{ env.VERSION }}
-          name: kube-tui ${{ env.VERSION }}
-          body: |
-            ## What's Changed
-            
-            * 自动化发布
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 安装GitHub CLI
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+          
+          # 登录GitHub CLI
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          
+          # 上传所有 artifacts 到 release
+          find artifacts -type f | while read -r file; do
+            asset_name=$(basename "$(dirname "$file")")
+            echo "Uploading $asset_name..."
+            gh release upload ${{ github.ref_name }} "$file" --name "$asset_name"
+          done
