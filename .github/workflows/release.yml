@@ -67,19 +67,21 @@ jobs:
           fi
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # 升级到v4版本
         with:
           name: ${{ matrix.asset_name }}
           path: artifacts/${{ matrix.artifact_name }}
+          if-no-files-found: error  # 新增配置，文件不存在时抛出错误
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4  # 升级到v4版本
         with:
           path: artifacts
+          merge-multiple: false  # 保持每个artifact在单独目录
 
       - name: Create release
         id: create_release
