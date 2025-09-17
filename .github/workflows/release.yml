@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'  # 当推送类似v1.0.0的标签时触发
 
+# 增加权限配置，允许创建Release和操作内容
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build for ${{ matrix.target }}
