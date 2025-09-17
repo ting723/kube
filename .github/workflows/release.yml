@@ -5,7 +5,6 @@ on:
     tags:
       - 'v*'  # 当推送类似v1.0.0的标签时触发
 
-# 增加权限配置，允许创建Release和操作内容
 permissions:
   contents: write
 
@@ -48,7 +47,6 @@ jobs:
       - name: Strip binary (non-Windows)
         if: matrix.os != 'windows-latest'
         run: |
-          # 安装strip工具(如果需要)
           case ${{ matrix.target }} in
             x86_64-unknown-linux-musl)
               strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
@@ -58,27 +56,29 @@ jobs:
               ;;
           esac
 
-      # 针对Windows使用PowerShell语法
       - name: Prepare artifacts (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # 创建临时目录
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-          
-          # 复制二进制文件到临时目录
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}" -Destination "artifacts/"
+          # 验证文件是否存在
+          if (-Not (Test-Path "artifacts/${{ matrix.artifact_name }}")) {
+            Write-Error "构建产物不存在: artifacts/${{ matrix.artifact_name }}"
+            exit 1
+          }
 
-      # 针对类Unix系统使用Bash语法
       - name: Prepare artifacts (Unix)
         if: matrix.os != 'windows-latest'
         shell: bash
         run: |
-          # 创建临时目录
           mkdir -p artifacts
-          
-          # 复制二进制文件到临时目录
           cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
+          # 验证文件是否存在
+          if [ ! -f "artifacts/${{ matrix.artifact_name }}" ]; then
+            echo "构建产物不存在: artifacts/${{ matrix.artifact_name }}"
+            exit 1
+          fi
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -97,33 +97,32 @@ jobs:
           path: artifacts
           merge-multiple: false
 
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-
-      - name: Upload release assets
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: List downloaded artifacts
         run: |
-          # 安装GitHub CLI
+          echo "下载的文件结构:"
+          tree artifacts/  # 显示文件结构帮助调试
+
+      - name: Install GitHub CLI
+        run: |
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
           sudo apt update
           sudo apt install gh -y
+          gh --version  # 验证安装
+
+      - name: Create release and upload assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 使用gh命令创建release (替代actions/create-release)
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ github.ref_name }}" \
+            --notes "Automatically generated release for ${{ github.ref_name }}" \
+            --draft=false \
+            --prerelease=false
           
-          # 登录GitHub CLI
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
-          
-          # 上传所有 artifacts 到 release
+          # 上传所有资产
           find artifacts -type f | while read -r file; do
-            asset_name=$(basename "$(dirname "$file")")
-            echo "Uploading $asset_name..."
-            gh release upload ${{ github.ref_name }} "$file" --name "$asset_name"
+            echo "上传资产: $file"
+            gh release upload ${{ github.ref_name }} "$file" --name "$(basename "$file")"
           done
