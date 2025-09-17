@@ -17,8 +17,8 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            artifact_name: kube-tui
-            asset_name: kube-tui-linux-x86_64
+            artifact_name: kube-tui  # 基础文件名
+            asset_name: kube-tui-linux-x86_64  # 带平台标识的唯一名称
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact_name: kube-tui
@@ -61,9 +61,10 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}" -Destination "artifacts/"
-          if (-Not (Test-Path "artifacts/${{ matrix.artifact_name }}")) {
-            Write-Error "构建产物不存在: artifacts/${{ matrix.artifact_name }}"
+          # 重命名文件为带平台标识的名称
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}" -Destination "artifacts/${{ matrix.asset_name }}"
+          if (-Not (Test-Path "artifacts/${{ matrix.asset_name }}")) {
+            Write-Error "构建产物不存在: artifacts/${{ matrix.asset_name }}"
             exit 1
           }
 
@@ -72,9 +73,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts
-          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
-          if [ ! -f "artifacts/${{ matrix.artifact_name }}" ]; then
-            echo "构建产物不存在: artifacts/${{ matrix.artifact_name }}"
+          # 重命名文件为带平台标识的名称
+          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} "artifacts/${{ matrix.asset_name }}"
+          if [ ! -f "artifacts/${{ matrix.asset_name }}" ]; then
+            echo "构建产物不存在: artifacts/${{ matrix.asset_name }}"
             exit 1
           fi
 
@@ -82,7 +84,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: artifacts/${{ matrix.artifact_name }}
+          path: artifacts/${{ matrix.asset_name }}
           if-no-files-found: error
 
   release:
@@ -124,9 +126,9 @@ jobs:
             --draft=false \
             --prerelease=false
           
-          # 上传所有资产 - 移除不支持的--name参数
+          # 上传所有资产 - 现在每个文件都有唯一名称
           find artifacts -type f | while read -r file; do
             echo "上传资产: $file"
-            # 直接上传文件，资产名称会自动使用文件名
+            # 上传时使用带平台标识的文件名
             gh release upload ${{ github.ref_name }} "$file"
           done
