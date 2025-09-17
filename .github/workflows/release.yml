@@ -62,7 +62,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}" -Destination "artifacts/"
-          # 验证文件是否存在
           if (-Not (Test-Path "artifacts/${{ matrix.artifact_name }}")) {
             Write-Error "构建产物不存在: artifacts/${{ matrix.artifact_name }}"
             exit 1
@@ -74,7 +73,6 @@ jobs:
         run: |
           mkdir -p artifacts
           cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
-          # 验证文件是否存在
           if [ ! -f "artifacts/${{ matrix.artifact_name }}" ]; then
             echo "构建产物不存在: artifacts/${{ matrix.artifact_name }}"
             exit 1
@@ -91,6 +89,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      # 添加代码检出步骤，提供git仓库上下文
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史，确保标签可被识别
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -100,7 +104,7 @@ jobs:
       - name: List downloaded artifacts
         run: |
           echo "下载的文件结构:"
-          tree artifacts/  # 显示文件结构帮助调试
+          tree artifacts/
 
       - name: Install GitHub CLI
         run: |
@@ -108,13 +112,16 @@ jobs:
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
           sudo apt update
           sudo apt install gh -y
-          gh --version  # 验证安装
+          gh --version
 
       - name: Create release and upload assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 使用gh命令创建release (替代actions/create-release)
+          # 验证当前目录是git仓库
+          git status
+          
+          # 创建release
           gh release create ${{ github.ref_name }} \
             --title "Release ${{ github.ref_name }}" \
             --notes "Automatically generated release for ${{ github.ref_name }}" \
