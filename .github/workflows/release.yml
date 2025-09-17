@@ -89,11 +89,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      # 添加代码检出步骤，提供git仓库上下文
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整历史，确保标签可被识别
+          fetch-depth: 0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -118,9 +117,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 验证当前目录是git仓库
-          git status
-          
           # 创建release
           gh release create ${{ github.ref_name }} \
             --title "Release ${{ github.ref_name }}" \
@@ -128,8 +124,9 @@ jobs:
             --draft=false \
             --prerelease=false
           
-          # 上传所有资产
+          # 上传所有资产 - 移除不支持的--name参数
           find artifacts -type f | while read -r file; do
             echo "上传资产: $file"
-            gh release upload ${{ github.ref_name }} "$file" --name "$(basename "$file")"
+            # 直接上传文件，资产名称会自动使用文件名
+            gh release upload ${{ github.ref_name }} "$file"
           done
