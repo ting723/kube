@@ -696,3 +696,115 @@ impl AppState {
     }
 
     }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    fn create_test_state() -> AppState {
+        AppState::default()
+    }
+
+    #[test]
+    fn test_quit_key() {
+        let mut state = create_test_state();
+        let key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE);
+        state.handle_key_event(key).unwrap();
+        assert!(state.should_quit);
+    }
+
+    #[test]
+    fn test_help_key() {
+        let mut state = create_test_state();
+        let key = KeyEvent::new(KeyCode::Char('?'), KeyModifiers::NONE);
+        state.handle_key_event(key).unwrap();
+        assert_eq!(state.mode, AppMode::Help);
+    }
+
+    #[test]
+    fn test_navigation_down_in_namespace_list() {
+        let mut state = create_test_state();
+        state.namespaces = vec!["default".to_string(), "kube-system".to_string()];
+        state.mode = AppMode::NamespaceList;
+        let key = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        state.handle_key_event(key).unwrap();
+        assert_eq!(state.selected_namespace_index, 1);
+    }
+
+    #[test]
+    fn test_navigation_up_in_pod_list() {
+        let mut state = create_test_state();
+        use crate::kubectl::types::{Pod, PodStatus};
+        state.pods = vec![
+            Pod {
+                name: "pod1".to_string(),
+                namespace: "default".to_string(),
+                status: PodStatus { phase: "Running".to_string(), conditions: None, container_statuses: None },
+                ready: "1/1".to_string(),
+                restarts: 0,
+                age: "1d".to_string(),
+                node: None,
+                ip: None,
+            },
+            Pod {
+                name: "pod2".to_string(),
+                namespace: "default".to_string(),
+                status: PodStatus { phase: "Running".to_string(), conditions: None, container_statuses: None },
+                ready: "1/1".to_string(),
+                restarts: 0,
+                age: "1d".to_string(),
+                node: None,
+                ip: None,
+            },
+        ];
+        state.mode = AppMode::PodList;
+        state.selected_pod_index = 1;
+        let key = KeyEvent::new(KeyCode::Up, KeyModifiers::NONE);
+        state.handle_key_event(key).unwrap();
+        assert_eq!(state.selected_pod_index, 0);
+    }
+
+    #[test]
+    fn test_panel_switch_right() {
+        let mut state = create_test_state();
+        state.mode = AppMode::NamespaceList;
+        state.switch_panel_right();
+        assert_eq!(state.mode, AppMode::PodList);
+    }
+
+    #[test]
+    fn test_panel_switch_left() {
+        let mut state = create_test_state();
+        state.mode = AppMode::PodList;
+        state.switch_panel_left();
+        assert_eq!(state.mode, AppMode::NamespaceList);
+    }
+
+    #[test]
+    fn test_start_search() {
+        let mut state = create_test_state();
+        state.mode = AppMode::PodList;
+        state.start_search();
+        assert!(state.search_mode);
+        assert_eq!(state.mode, AppMode::Search);
+        assert_eq!(state.previous_mode, AppMode::PodList);
+    }
+
+    #[test]
+    fn test_language_toggle() {
+        let mut state = create_test_state();
+        let original = state.language_chinese;
+        state.toggle_language();
+        assert_eq!(state.language_chinese, !original);
+    }
+
+    #[test]
+    fn test_mouse_mode_toggle() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Describe;
+        let original = state.text_selection_mode;
+        state.toggle_mouse_mode();
+        assert_eq!(state.text_selection_mode, !original);
+    }
+}
