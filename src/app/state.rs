@@ -103,6 +103,8 @@ pub struct AppState {
     pub favorite_namespaces: Vec<String>,
     pub last_selected_positions: HashMap<AppMode, usize>,
     pub batch_mode: bool,
+    pub batch_items: Vec<String>, // Items for batch operations
+    pub selected_batch_index: usize, // Current selection in batch mode
     pub selected_batch_items: HashSet<usize>,
     pub active_portforwards: Vec<()>, // Temporary workaround: use empty tuples instead of Child which isn't Clone
     pub log_search_query: String,
@@ -180,6 +182,8 @@ impl Default for AppState {
             favorite_namespaces: Vec::new(),
             last_selected_positions: HashMap::new(),
             batch_mode: false,
+            batch_items: Vec::new(),
+            selected_batch_index: 0,
             selected_batch_items: HashSet::new(),
             active_portforwards: Vec::new(),
             log_search_query: String::new(),

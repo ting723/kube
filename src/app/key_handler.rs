@@ -128,7 +128,7 @@ impl AppState {
     }
 
     // 搜索相关方法
-    fn start_search(&mut self) {
+    pub fn start_search(&mut self) {
         // 只在列表模式下才能搜索
         match self.mode {
             AppMode::NamespaceList
@@ -150,14 +150,14 @@ impl AppState {
         }
     }
 
-    fn search_next(&mut self) {
+    pub fn search_next(&mut self) {
         if !self.search_results.is_empty() {
             self.current_search_index = (self.current_search_index + 1) % self.search_results.len();
             self.jump_to_search_result();
         }
     }
 
-    fn search_previous(&mut self) {
+    pub fn search_previous(&mut self) {
         if !self.search_results.is_empty() {
             self.current_search_index = if self.current_search_index == 0 {
                 self.search_results.len() - 1
@@ -361,7 +361,7 @@ impl AppState {
     }
 
     // 其他需要的辅助方法
-    fn move_selection_down(&mut self) {
+    pub fn move_selection_down(&mut self) {
         match self.mode {
             AppMode::NamespaceList => {
                 if self.selected_namespace_index + 1 < self.namespaces.len() {
@@ -422,7 +422,7 @@ impl AppState {
         }
     }
 
-    fn move_selection_up(&mut self) {
+    pub fn move_selection_up(&mut self) {
         match self.mode {
             AppMode::NamespaceList => {
                 if self.selected_namespace_index > 0 {
@@ -483,11 +483,11 @@ impl AppState {
         }
     }
 
-    fn switch_panel(&mut self) {
+    pub fn switch_panel(&mut self) {
         self.switch_panel_right();
     }
 
-    fn switch_panel_right(&mut self) {
+    pub fn switch_panel_right(&mut self) {
         match self.mode {
             AppMode::NamespaceList => self.mode = AppMode::PodList,
             AppMode::PodList => self.mode = AppMode::ServiceList,
@@ -505,7 +505,7 @@ impl AppState {
         }
     }
 
-    fn switch_panel_left(&mut self) {
+    pub fn switch_panel_left(&mut self) {
         match self.mode {
             AppMode::NamespaceList => self.mode = AppMode::Help,
             AppMode::Help => self.mode = AppMode::SecretList,
@@ -523,7 +523,7 @@ impl AppState {
         }
     }
 
-    fn handle_left_navigation(&mut self) {
+    pub fn handle_left_navigation(&mut self) {
         match self.mode {
             AppMode::Logs | AppMode::Describe => {
                 // 在滚动模式下，h 键用于水平滚动（如果需要）
@@ -535,7 +535,7 @@ impl AppState {
         }
     }
 
-    fn handle_right_navigation(&mut self) {
+    pub fn handle_right_navigation(&mut self) {
         match self.mode {
             AppMode::Logs | AppMode::Describe => {
                 // 在滚动模式下，l 键用于水平滚动（如果需要）
@@ -547,7 +547,7 @@ impl AppState {
         }
     }
 
-    fn handle_enter(&mut self) {
+    pub fn handle_enter(&mut self) {
         match self.mode {
             AppMode::NamespaceList => {
                 if let Some(namespace) = self.namespaces.get(self.selected_namespace_index) {
@@ -594,7 +594,7 @@ impl AppState {
         }
     }
 
-    fn handle_describe(&mut self) {
+    pub fn handle_describe(&mut self) {
         match self.mode {
             AppMode::PodList
             | AppMode::ServiceList
@@ -618,7 +618,7 @@ impl AppState {
         }
     }
 
-    fn handle_logs(&mut self) {
+    pub fn handle_logs(&mut self) {
         match self.mode {
             AppMode::PodList => {
                 self.previous_mode = self.mode.clone();
@@ -629,7 +629,7 @@ impl AppState {
         }
     }
 
-    fn handle_delete(&mut self) {
+    pub fn handle_delete(&mut self) {
         match self.mode {
             AppMode::PodList => {
                 if let Some(pod) = self.get_selected_pod() {
@@ -644,7 +644,7 @@ impl AppState {
         }
     }
 
-    fn handle_exec(&mut self) {
+    pub fn handle_exec(&mut self) {
         match self.mode {
             AppMode::PodList => {
                 if let Some(pod) = self.get_selected_pod() {
@@ -660,7 +660,7 @@ impl AppState {
         }
     }
 
-    fn handle_yaml_view(&mut self) {
+    pub fn handle_yaml_view(&mut self) {
         match self.mode {
             AppMode::PodList
             | AppMode::ServiceList
@@ -683,7 +683,7 @@ impl AppState {
         }
     }
 
-    fn handle_top_view(&mut self) {
+    pub fn handle_top_view(&mut self) {
         match self.mode {
             AppMode::PodList => {
                 self.previous_mode = self.mode.clone();
