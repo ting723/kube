@@ -1,8 +1,8 @@
 use ratatui::{
-    layout::{Constraint, Layout, Direction, Rect},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Paragraph, Row, Table, Cell},
     Frame,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
 };
 
 use crate::app::AppState;
@@ -18,10 +18,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(format!("Pods in namespace: {}", app.current_namespace))
+                    .title(format!("Pods in namespace: {}", app.current_namespace)),
             )
             .style(Style::default().fg(Color::Gray));
-        
+
         f.render_widget(no_pods, chunks[0]);
         return;
     }
@@ -55,7 +55,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(pod.restarts.to_string()),
                 Cell::from(pod.age.clone()),
                 Cell::from(pod.node.clone().unwrap_or_else(|| "<none>".to_string())),
-            ]).style(style)
+            ])
+            .style(style)
         })
         .collect();
 
@@ -68,25 +69,32 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Constraint::Percentage(10),
             Constraint::Percentage(10),
             Constraint::Percentage(25),
-        ]
+        ],
     )
-        .header(
-            Row::new(vec!["Name", "Ready", "Status", "Restarts", "Age", "Node"])
-                .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!("Pods in namespace: {} ({})", app.current_namespace, app.pods.len()))
-        )
-        .row_highlight_style(
+    .header(
+        Row::new(vec!["Name", "Ready", "Status", "Restarts", "Age", "Node"]).style(
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        );
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+    )
+    .block(Block::default().borders(Borders::ALL).title(format!(
+        "Pods in namespace: {} ({})",
+        app.current_namespace,
+        app.pods.len()
+    )))
+    .row_highlight_style(
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
 
-    f.render_stateful_widget(table, chunks[0], &mut create_table_state(app.selected_pod_index));
+    f.render_stateful_widget(
+        table,
+        chunks[0],
+        &mut create_table_state(app.selected_pod_index),
+    );
 }
 
 fn create_table_state(selected: usize) -> ratatui::widgets::TableState {

@@ -4,22 +4,16 @@ mod kubectl;
 mod ui;
 
 use anyhow::Result;
-use app::{AppState, AppMode};
+use app::{AppMode, AppState};
 use crossterm::{
     event::Event,
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    event::{EnableMouseCapture, DisableMouseCapture},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use kubectl::KubectlClient;
-use ratatui::{
-    backend::CrosstermBackend,
-    Terminal,
-};
-use std::{
-    io,
-    time::Duration,
-};
+use ratatui::{Terminal, backend::CrosstermBackend};
+use std::{io, time::Duration};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -61,7 +55,7 @@ async fn main() -> Result<()> {
 
     // Create app state
     let mut app = AppState::new();
-    
+
     // Load initial data
     if let Err(e) = load_initial_data(&mut app, &client).await {
         eprintln!("Failed to load initial data: {}", e);
@@ -89,7 +83,7 @@ async fn main() -> Result<()> {
 async fn load_initial_data(app: &mut AppState, client: &KubectlClient) -> Result<()> {
     // 显示cluster-info命令
     app.set_current_command("kubectl cluster-info");
-    
+
     // Load namespaces
     app.set_current_command("kubectl get namespaces");
     if let Ok(namespaces) = client.get_namespaces().await {
@@ -120,7 +114,7 @@ async fn manage_mouse_capture(
     app: &mut AppState,
 ) -> Result<()> {
     let should_enable = app.should_enable_mouse_capture();
-    
+
     if should_enable && !app.mouse_capture_enabled {
         // 需要启用鼠标捕获
         execute!(terminal.backend_mut(), EnableMouseCapture)?;
@@ -130,7 +124,7 @@ async fn manage_mouse_capture(
         execute!(terminal.backend_mut(), DisableMouseCapture)?;
         app.mouse_capture_enabled = false;
     }
-    
+
     Ok(())
 }
 
@@ -148,23 +142,23 @@ async fn run_app(
             match event {
                 Event::Key(key_event) => {
                     app.handle_key_event(key_event)?;
-                    
+
                     // 管理鼠标捕获状态（在键盘事件处理后检查模式变化或M键切换）
                     manage_mouse_capture(terminal, app).await?;
-                    
+
                     // 处理待执行的exec命令
                     if let Some(exec_cmd) = app.pending_exec.take() {
                         execute_external_command(&exec_cmd, terminal).await?;
                         app.clear_current_command();
-                        
+
                         // 在exec后强制刷新界面和数据
                         app.logs.clear();
                         app.describe_content.clear();
-                        
+
                         // 强制返回到PodList模式并重新加载所有数据
                         app.mode = AppMode::PodList;
                         app.previous_mode = AppMode::PodList;
-                        
+
                         // 重新加载所有必要的数据
                         if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                             app.pods = pods;
@@ -172,27 +166,32 @@ async fn run_app(
                         if let Ok(services) = client.get_services(&app.current_namespace).await {
                             app.services = services;
                         }
-                        if let Ok(deployments) = client.get_deployments(&app.current_namespace).await {
+                        if let Ok(deployments) =
+                            client.get_deployments(&app.current_namespace).await
+                        {
                             app.deployments = deployments;
                         }
                         if let Ok(jobs) = client.get_jobs(&app.current_namespace).await {
                             app.jobs = jobs;
                         }
-                        
+
                         app.refresh_data();
-                        
+
                         // 强制重绘界面确保显示正常
                         terminal.draw(|f| ui::render_ui(f, app))?;
                     }
-                    
+
                     // Handle mode changes that require data loading
                     match app.mode {
                         AppMode::NamespaceList => {
                             if app.namespaces.is_empty() || app.should_refresh() {
                                 app.set_current_command("kubectl get namespaces");
                                 if let Ok(namespaces) = client.get_namespaces().await {
-                                    app.namespaces = namespaces.into_iter().map(|ns| ns.name).collect();
-                                    if !app.namespaces.is_empty() && app.current_namespace.is_empty() {
+                                    app.namespaces =
+                                        namespaces.into_iter().map(|ns| ns.name).collect();
+                                    if !app.namespaces.is_empty()
+                                        && app.current_namespace.is_empty()
+                                    {
                                         app.current_namespace = app.namespaces[0].clone();
                                     }
                                     app.refresh_data();
@@ -210,7 +209,9 @@ async fn run_app(
                         }
                         AppMode::ServiceList => {
                             if app.services.is_empty() || app.should_refresh() {
-                                if let Ok(services) = client.get_services(&app.current_namespace).await {
+                                if let Ok(services) =
+                                    client.get_services(&app.current_namespace).await
+                                {
                                     app.services = services;
                                     app.refresh_data();
                                 }
@@ -218,7 +219,9 @@ async fn run_app(
                         }
                         AppMode::DeploymentList => {
                             if app.deployments.is_empty() || app.should_refresh() {
-                                if let Ok(deployments) = client.get_deployments(&app.current_namespace).await {
+                                if let Ok(deployments) =
+                                    client.get_deployments(&app.current_namespace).await
+                                {
                                     app.deployments = deployments;
                                     app.refresh_data();
                                 }
@@ -234,7 +237,9 @@ async fn run_app(
                         }
                         AppMode::DaemonSetList => {
                             if app.daemonsets.is_empty() || app.should_refresh() {
-                                if let Ok(daemonsets) = client.get_daemonsets(&app.current_namespace).await {
+                                if let Ok(daemonsets) =
+                                    client.get_daemonsets(&app.current_namespace).await
+                                {
                                     app.daemonsets = daemonsets;
                                     app.refresh_data();
                                 }
@@ -258,7 +263,9 @@ async fn run_app(
                         }
                         AppMode::ConfigMapList => {
                             if app.configmaps.is_empty() || app.should_refresh() {
-                                if let Ok(configmaps) = client.get_configmaps(&app.current_namespace).await {
+                                if let Ok(configmaps) =
+                                    client.get_configmaps(&app.current_namespace).await
+                                {
                                     app.configmaps = configmaps;
                                     app.refresh_data();
                                 }
@@ -266,7 +273,9 @@ async fn run_app(
                         }
                         AppMode::SecretList => {
                             if app.secrets.is_empty() || app.should_refresh() {
-                                if let Ok(secrets) = client.get_secrets(&app.current_namespace).await {
+                                if let Ok(secrets) =
+                                    client.get_secrets(&app.current_namespace).await
+                                {
                                     app.secrets = secrets;
                                     app.refresh_data();
                                 }
@@ -277,8 +286,13 @@ async fn run_app(
                                 if app.logs.is_empty() || app.should_refresh() {
                                     let pod_name = pod.name.clone();
                                     let namespace = app.current_namespace.clone();
-                                    app.set_current_command(&format!("kubectl logs -f -n {} {} --tail=100", namespace, pod_name));
-                                    if let Ok(logs) = client.get_pod_logs(&namespace, &pod_name, 100).await {
+                                    app.set_current_command(&format!(
+                                        "kubectl logs -f -n {} {} --tail=100",
+                                        namespace, pod_name
+                                    ));
+                                    if let Ok(logs) =
+                                        client.get_pod_logs(&namespace, &pod_name, 100).await
+                                    {
                                         app.logs = logs;
                                         // 如果开启了自动滚动，滚动到最新位置
                                         if app.logs_auto_scroll {
@@ -296,8 +310,13 @@ async fn run_app(
                                         if let Some(pod) = app.get_selected_pod() {
                                             let pod_name = pod.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl describe pod -n {} {}", namespace, pod_name));
-                                            if let Ok(description) = client.describe_pod(&namespace, &pod_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe pod -n {} {}",
+                                                namespace, pod_name
+                                            ));
+                                            if let Ok(description) =
+                                                client.describe_pod(&namespace, &pod_name).await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -307,8 +326,14 @@ async fn run_app(
                                         if let Some(service) = app.get_selected_service() {
                                             let service_name = service.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl describe service -n {} {}", namespace, service_name));
-                                            if let Ok(description) = client.describe_service(&namespace, &service_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe service -n {} {}",
+                                                namespace, service_name
+                                            ));
+                                            if let Ok(description) = client
+                                                .describe_service(&namespace, &service_name)
+                                                .await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -318,8 +343,14 @@ async fn run_app(
                                         if let Some(deployment) = app.get_selected_deployment() {
                                             let deployment_name = deployment.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl describe deployment -n {} {}", namespace, deployment_name));
-                                            if let Ok(description) = client.describe_deployment(&namespace, &deployment_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe deployment -n {} {}",
+                                                namespace, deployment_name
+                                            ));
+                                            if let Ok(description) = client
+                                                .describe_deployment(&namespace, &deployment_name)
+                                                .await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -329,8 +360,13 @@ async fn run_app(
                                         if let Some(job) = app.get_selected_job() {
                                             let job_name = job.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl describe job -n {} {}", namespace, job_name));
-                                            if let Ok(description) = client.describe_job(&namespace, &job_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe job -n {} {}",
+                                                namespace, job_name
+                                            ));
+                                            if let Ok(description) =
+                                                client.describe_job(&namespace, &job_name).await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -340,8 +376,14 @@ async fn run_app(
                                         if let Some(daemonset) = app.get_selected_daemonset() {
                                             let daemonset_name = daemonset.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl describe daemonset -n {} {}", namespace, daemonset_name));
-                                            if let Ok(description) = client.describe_daemonset(&namespace, &daemonset_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe daemonset -n {} {}",
+                                                namespace, daemonset_name
+                                            ));
+                                            if let Ok(description) = client
+                                                .describe_daemonset(&namespace, &daemonset_name)
+                                                .await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -350,8 +392,13 @@ async fn run_app(
                                     AppMode::NodeList => {
                                         if let Some(node) = app.get_selected_node() {
                                             let node_name = node.name.clone();
-                                            app.set_current_command(&format!("kubectl describe node {}", node_name));
-                                            if let Ok(description) = client.describe_node(&node_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe node {}",
+                                                node_name
+                                            ));
+                                            if let Ok(description) =
+                                                client.describe_node(&node_name).await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -361,8 +408,14 @@ async fn run_app(
                                         if let Some(configmap) = app.get_selected_configmap() {
                                             let configmap_name = configmap.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl describe configmap -n {} {}", namespace, configmap_name));
-                                            if let Ok(description) = client.describe_configmap(&namespace, &configmap_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe configmap -n {} {}",
+                                                namespace, configmap_name
+                                            ));
+                                            if let Ok(description) = client
+                                                .describe_configmap(&namespace, &configmap_name)
+                                                .await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -372,8 +425,14 @@ async fn run_app(
                                         if let Some(secret) = app.get_selected_secret() {
                                             let secret_name = secret.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl describe secret -n {} {}", namespace, secret_name));
-                                            if let Ok(description) = client.describe_secret(&namespace, &secret_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe secret -n {} {}",
+                                                namespace, secret_name
+                                            ));
+                                            if let Ok(description) = client
+                                                .describe_secret(&namespace, &secret_name)
+                                                .await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -383,8 +442,13 @@ async fn run_app(
                                         if let Some(pvc) = app.get_selected_pvc() {
                                             let pvc_name = pvc.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl describe pvc -n {} {}", namespace, pvc_name));
-                                            if let Ok(description) = client.describe_pvc(&namespace, &pvc_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe pvc -n {} {}",
+                                                namespace, pvc_name
+                                            ));
+                                            if let Ok(description) =
+                                                client.describe_pvc(&namespace, &pvc_name).await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -393,8 +457,13 @@ async fn run_app(
                                     AppMode::PVList => {
                                         if let Some(pv) = app.get_selected_pv() {
                                             let pv_name = pv.name.clone();
-                                            app.set_current_command(&format!("kubectl describe pv {}", pv_name));
-                                            if let Ok(description) = client.describe_pv(&pv_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl describe pv {}",
+                                                pv_name
+                                            ));
+                                            if let Ok(description) =
+                                                client.describe_pv(&pv_name).await
+                                            {
                                                 app.describe_content = description;
                                             }
                                             app.clear_current_command();
@@ -411,8 +480,14 @@ async fn run_app(
                                         if let Some(pod) = app.get_selected_pod() {
                                             let pod_name = pod.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl get pod -n {} {} -o yaml", namespace, pod_name));
-                                            if let Ok(yaml) = client.get_yaml("pod", Some(&namespace), &pod_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl get pod -n {} {} -o yaml",
+                                                namespace, pod_name
+                                            ));
+                                            if let Ok(yaml) = client
+                                                .get_yaml("pod", Some(&namespace), &pod_name)
+                                                .await
+                                            {
                                                 app.yaml_content = yaml;
                                             }
                                             app.clear_current_command();
@@ -422,8 +497,18 @@ async fn run_app(
                                         if let Some(service) = app.get_selected_service() {
                                             let service_name = service.name.clone();
                                             let namespace = app.current_namespace.clone();
-                                            app.set_current_command(&format!("kubectl get service -n {} {} -o yaml", namespace, service_name));
-                                            if let Ok(yaml) = client.get_yaml("service", Some(&namespace), &service_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl get service -n {} {} -o yaml",
+                                                namespace, service_name
+                                            ));
+                                            if let Ok(yaml) = client
+                                                .get_yaml(
+                                                    "service",
+                                                    Some(&namespace),
+                                                    &service_name,
+                                                )
+                                                .await
+                                            {
                                                 app.yaml_content = yaml;
                                             }
                                             app.clear_current_command();
@@ -432,8 +517,13 @@ async fn run_app(
                                     AppMode::NodeList => {
                                         if let Some(node) = app.get_selected_node() {
                                             let node_name = node.name.clone();
-                                            app.set_current_command(&format!("kubectl get node {} -o yaml", node_name));
-                                            if let Ok(yaml) = client.get_yaml("node", None, &node_name).await {
+                                            app.set_current_command(&format!(
+                                                "kubectl get node {} -o yaml",
+                                                node_name
+                                            ));
+                                            if let Ok(yaml) =
+                                                client.get_yaml("node", None, &node_name).await
+                                            {
                                                 app.yaml_content = yaml;
                                             }
                                             app.clear_current_command();
@@ -446,7 +536,10 @@ async fn run_app(
                         AppMode::TopView => {
                             if app.pod_metrics.is_empty() || app.should_refresh() {
                                 let namespace = app.current_namespace.clone();
-                                app.set_current_command(&format!("kubectl top pods -n {}", namespace));
+                                app.set_current_command(&format!(
+                                    "kubectl top pods -n {}",
+                                    namespace
+                                ));
                                 if let Ok(metrics) = client.get_pod_metrics(&namespace).await {
                                     app.pod_metrics = metrics;
                                     app.refresh_data();
@@ -481,42 +574,60 @@ async fn run_app(
                     app.clear_current_command();
                 }
                 AppMode::PodList => {
-                    app.set_current_command(&format!("kubectl get pods -n {} (auto-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get pods -n {} (auto-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                         app.pods = pods;
                     }
                     app.clear_current_command();
                 }
                 AppMode::ServiceList => {
-                    app.set_current_command(&format!("kubectl get services -n {}", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get services -n {}",
+                        app.current_namespace
+                    ));
                     if let Ok(services) = client.get_services(&app.current_namespace).await {
                         app.services = services;
                     }
                     app.clear_current_command();
                 }
                 AppMode::DeploymentList => {
-                    app.set_current_command(&format!("kubectl get deployments -n {}", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get deployments -n {}",
+                        app.current_namespace
+                    ));
                     if let Ok(deployments) = client.get_deployments(&app.current_namespace).await {
                         app.deployments = deployments;
                     }
                     app.clear_current_command();
                 }
                 AppMode::JobList => {
-                    app.set_current_command(&format!("kubectl get jobs -n {}", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get jobs -n {}",
+                        app.current_namespace
+                    ));
                     if let Ok(jobs) = client.get_jobs(&app.current_namespace).await {
                         app.jobs = jobs;
                     }
                     app.clear_current_command();
                 }
                 AppMode::DaemonSetList => {
-                    app.set_current_command(&format!("kubectl get daemonsets -n {}", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get daemonsets -n {}",
+                        app.current_namespace
+                    ));
                     if let Ok(daemonsets) = client.get_daemonsets(&app.current_namespace).await {
                         app.daemonsets = daemonsets;
                     }
                     app.clear_current_command();
                 }
                 AppMode::PVCList => {
-                    app.set_current_command(&format!("kubectl get pvc -n {}", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get pvc -n {}",
+                        app.current_namespace
+                    ));
                     if let Ok(pvcs) = client.get_pvcs(&app.current_namespace).await {
                         app.pvcs = pvcs;
                     }
@@ -530,14 +641,20 @@ async fn run_app(
                     app.clear_current_command();
                 }
                 AppMode::ConfigMapList => {
-                    app.set_current_command(&format!("kubectl get configmaps -n {}", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get configmaps -n {}",
+                        app.current_namespace
+                    ));
                     if let Ok(configmaps) = client.get_configmaps(&app.current_namespace).await {
                         app.configmaps = configmaps;
                     }
                     app.clear_current_command();
                 }
                 AppMode::SecretList => {
-                    app.set_current_command(&format!("kubectl get secrets -n {}", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get secrets -n {}",
+                        app.current_namespace
+                    ));
                     if let Ok(secrets) = client.get_secrets(&app.current_namespace).await {
                         app.secrets = secrets;
                     }
@@ -546,7 +663,10 @@ async fn run_app(
                 AppMode::Logs => {
                     // 日志自动刷新
                     if let Some(pod) = app.get_selected_pod() {
-                        if let Ok(logs) = client.get_pod_logs(&app.current_namespace, &pod.name, 100).await {
+                        if let Ok(logs) = client
+                            .get_pod_logs(&app.current_namespace, &pod.name, 100)
+                            .await
+                        {
                             app.logs = logs;
                             if app.logs_auto_scroll {
                                 app.logs_scroll = app.logs.len().saturating_sub(1);
@@ -565,7 +685,10 @@ async fn run_app(
             if let Some(pod) = app.get_selected_pod() {
                 let pod_name = pod.name.clone();
                 let namespace = app.current_namespace.clone();
-                app.set_current_command(&format!("kubectl logs -f -n {} {} --tail=100 (auto-refresh)", namespace, pod_name));
+                app.set_current_command(&format!(
+                    "kubectl logs -f -n {} {} --tail=100 (auto-refresh)",
+                    namespace, pod_name
+                ));
                 if let Ok(logs) = client.get_pod_logs(&namespace, &pod_name, 100).await {
                     app.logs = logs;
                     if app.logs_auto_scroll {
@@ -584,7 +707,10 @@ async fn run_app(
                     if let Some(pod) = app.get_selected_pod() {
                         let pod_name = pod.name.clone();
                         let namespace = app.current_namespace.clone();
-                        app.set_current_command(&format!("kubectl describe pod -n {} {} (auto-refresh)", namespace, pod_name));
+                        app.set_current_command(&format!(
+                            "kubectl describe pod -n {} {} (auto-refresh)",
+                            namespace, pod_name
+                        ));
                         if let Ok(description) = client.describe_pod(&namespace, &pod_name).await {
                             app.describe_content = description;
                         }
@@ -595,8 +721,13 @@ async fn run_app(
                     if let Some(service) = app.get_selected_service() {
                         let service_name = service.name.clone();
                         let namespace = app.current_namespace.clone();
-                        app.set_current_command(&format!("kubectl describe service -n {} {} (auto-refresh)", namespace, service_name));
-                        if let Ok(description) = client.describe_service(&namespace, &service_name).await {
+                        app.set_current_command(&format!(
+                            "kubectl describe service -n {} {} (auto-refresh)",
+                            namespace, service_name
+                        ));
+                        if let Ok(description) =
+                            client.describe_service(&namespace, &service_name).await
+                        {
                             app.describe_content = description;
                         }
                         app.clear_current_command();
@@ -606,8 +737,14 @@ async fn run_app(
                     if let Some(deployment) = app.get_selected_deployment() {
                         let deployment_name = deployment.name.clone();
                         let namespace = app.current_namespace.clone();
-                        app.set_current_command(&format!("kubectl describe deployment -n {} {} (auto-refresh)", namespace, deployment_name));
-                        if let Ok(description) = client.describe_deployment(&namespace, &deployment_name).await {
+                        app.set_current_command(&format!(
+                            "kubectl describe deployment -n {} {} (auto-refresh)",
+                            namespace, deployment_name
+                        ));
+                        if let Ok(description) = client
+                            .describe_deployment(&namespace, &deployment_name)
+                            .await
+                        {
                             app.describe_content = description;
                         }
                         app.clear_current_command();
@@ -616,7 +753,10 @@ async fn run_app(
                 AppMode::NodeList => {
                     if let Some(node) = app.get_selected_node() {
                         let node_name = node.name.clone();
-                        app.set_current_command(&format!("kubectl describe node {} (auto-refresh)", node_name));
+                        app.set_current_command(&format!(
+                            "kubectl describe node {} (auto-refresh)",
+                            node_name
+                        ));
                         if let Ok(description) = client.describe_node(&node_name).await {
                             app.describe_content = description;
                         }
@@ -635,8 +775,12 @@ async fn run_app(
                     if let Some(pod) = app.get_selected_pod() {
                         let pod_name = pod.name.clone();
                         let namespace = app.current_namespace.clone();
-                        app.set_current_command(&format!("kubectl get pod -n {} {} -o yaml (auto-refresh)", namespace, pod_name));
-                        if let Ok(yaml) = client.get_yaml("pod", Some(&namespace), &pod_name).await {
+                        app.set_current_command(&format!(
+                            "kubectl get pod -n {} {} -o yaml (auto-refresh)",
+                            namespace, pod_name
+                        ));
+                        if let Ok(yaml) = client.get_yaml("pod", Some(&namespace), &pod_name).await
+                        {
                             app.yaml_content = yaml;
                         }
                         app.clear_current_command();
@@ -646,8 +790,14 @@ async fn run_app(
                     if let Some(service) = app.get_selected_service() {
                         let service_name = service.name.clone();
                         let namespace = app.current_namespace.clone();
-                        app.set_current_command(&format!("kubectl get service -n {} {} -o yaml (auto-refresh)", namespace, service_name));
-                        if let Ok(yaml) = client.get_yaml("service", Some(&namespace), &service_name).await {
+                        app.set_current_command(&format!(
+                            "kubectl get service -n {} {} -o yaml (auto-refresh)",
+                            namespace, service_name
+                        ));
+                        if let Ok(yaml) = client
+                            .get_yaml("service", Some(&namespace), &service_name)
+                            .await
+                        {
                             app.yaml_content = yaml;
                         }
                         app.clear_current_command();
@@ -656,7 +806,10 @@ async fn run_app(
                 AppMode::NodeList => {
                     if let Some(node) = app.get_selected_node() {
                         let node_name = node.name.clone();
-                        app.set_current_command(&format!("kubectl get node {} -o yaml (auto-refresh)", node_name));
+                        app.set_current_command(&format!(
+                            "kubectl get node {} -o yaml (auto-refresh)",
+                            node_name
+                        ));
                         if let Ok(yaml) = client.get_yaml("node", None, &node_name).await {
                             app.yaml_content = yaml;
                         }
@@ -669,10 +822,21 @@ async fn run_app(
         }
 
         // Handle manual refresh requests (triggered by R key in non-special modes)
-        if matches!(app.mode, AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | 
-            AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | 
-            AppMode::PVList | AppMode::ConfigMapList | AppMode::SecretList | AppMode::NodeList) 
-            && app.last_update.elapsed() < Duration::from_millis(100) {
+        if matches!(
+            app.mode,
+            AppMode::NamespaceList
+                | AppMode::PodList
+                | AppMode::ServiceList
+                | AppMode::DeploymentList
+                | AppMode::JobList
+                | AppMode::DaemonSetList
+                | AppMode::PVCList
+                | AppMode::PVList
+                | AppMode::ConfigMapList
+                | AppMode::SecretList
+                | AppMode::NodeList
+        ) && app.last_update.elapsed() < Duration::from_millis(100)
+        {
             // This is a recent manual refresh request, execute it
             match app.mode {
                 AppMode::NamespaceList => {
@@ -686,42 +850,60 @@ async fn run_app(
                     app.clear_current_command();
                 }
                 AppMode::PodList => {
-                    app.set_current_command(&format!("kubectl get pods -n {} (manual-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get pods -n {} (manual-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                         app.pods = pods;
                     }
                     app.clear_current_command();
                 }
                 AppMode::ServiceList => {
-                    app.set_current_command(&format!("kubectl get services -n {} (manual-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get services -n {} (manual-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(services) = client.get_services(&app.current_namespace).await {
                         app.services = services;
                     }
                     app.clear_current_command();
                 }
                 AppMode::DeploymentList => {
-                    app.set_current_command(&format!("kubectl get deployments -n {} (manual-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get deployments -n {} (manual-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(deployments) = client.get_deployments(&app.current_namespace).await {
                         app.deployments = deployments;
                     }
                     app.clear_current_command();
                 }
                 AppMode::JobList => {
-                    app.set_current_command(&format!("kubectl get jobs -n {} (manual-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get jobs -n {} (manual-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(jobs) = client.get_jobs(&app.current_namespace).await {
                         app.jobs = jobs;
                     }
                     app.clear_current_command();
                 }
                 AppMode::DaemonSetList => {
-                    app.set_current_command(&format!("kubectl get daemonsets -n {} (manual-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get daemonsets -n {} (manual-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(daemonsets) = client.get_daemonsets(&app.current_namespace).await {
                         app.daemonsets = daemonsets;
                     }
                     app.clear_current_command();
                 }
                 AppMode::PVCList => {
-                    app.set_current_command(&format!("kubectl get pvc -n {} (manual-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get pvc -n {} (manual-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(pvcs) = client.get_pvcs(&app.current_namespace).await {
                         app.pvcs = pvcs;
                     }
@@ -735,14 +917,20 @@ async fn run_app(
                     app.clear_current_command();
                 }
                 AppMode::ConfigMapList => {
-                    app.set_current_command(&format!("kubectl get configmaps -n {} (manual-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get configmaps -n {} (manual-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(configmaps) = client.get_configmaps(&app.current_namespace).await {
                         app.configmaps = configmaps;
                     }
                     app.clear_current_command();
                 }
                 AppMode::SecretList => {
-                    app.set_current_command(&format!("kubectl get secrets -n {} (manual-refresh)", app.current_namespace));
+                    app.set_current_command(&format!(
+                        "kubectl get secrets -n {} (manual-refresh)",
+                        app.current_namespace
+                    ));
                     if let Ok(secrets) = client.get_secrets(&app.current_namespace).await {
                         app.secrets = secrets;
                     }
@@ -780,7 +968,7 @@ async fn execute_external_command(
 
     // 执行命令
     println!("Executing: {}", command);
-    
+
     let status = std::process::Command::new("sh")
         .arg("-c")
         .arg(command)
@@ -825,7 +1013,7 @@ async fn execute_external_command(
     execute!(terminal.backend_mut(), EnterAlternateScreen)?;
     terminal.hide_cursor()?;
     terminal.clear()?; // 强制清屏
-    
+
     // 确保终端完全恢复
     std::thread::sleep(std::time::Duration::from_millis(100));
 

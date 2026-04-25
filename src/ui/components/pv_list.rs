@@ -1,8 +1,8 @@
 use ratatui::{
-    layout::{Rect, Constraint},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Row, Table, Cell},
     Frame,
+    layout::{Constraint, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, Row, Table},
 };
 
 use crate::app::AppState;
@@ -13,10 +13,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title("PersistentVolumes")
+                    .title("PersistentVolumes"),
             )
             .style(Style::default().fg(Color::Gray));
-        
+
         f.render_widget(no_pvs, area);
         return;
     }
@@ -44,7 +44,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
 
             let access_modes_str = pv.access_modes.join(",");
             let claim = pv.claim.as_ref().unwrap_or(&"<none>".to_string()).clone();
-            let storage_class = pv.storage_class.as_ref().unwrap_or(&"<none>".to_string()).clone();
+            let storage_class = pv
+                .storage_class
+                .as_ref()
+                .unwrap_or(&"<none>".to_string())
+                .clone();
 
             Row::new(vec![
                 Cell::from(pv.name.clone()),
@@ -55,7 +59,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(claim),
                 Cell::from(storage_class),
                 Cell::from(pv.age.clone()),
-            ]).style(style)
+            ])
+            .style(style)
         })
         .collect();
 
@@ -68,23 +73,36 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Constraint::Percentage(15),
             Constraint::Percentage(15),
             Constraint::Percentage(15),
-        ]
+        ],
     )
-        .header(
-            Row::new(vec!["Name", "Capacity", "Access Modes", "Reclaim Policy", "Status", "Claim", "Storage Class", "Age"])
-                .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!("PersistentVolumes ({})", app.pvs.len()))
-        )
-        .row_highlight_style(
+    .header(
+        Row::new(vec![
+            "Name",
+            "Capacity",
+            "Access Modes",
+            "Reclaim Policy",
+            "Status",
+            "Claim",
+            "Storage Class",
+            "Age",
+        ])
+        .style(
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        );
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+    )
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!("PersistentVolumes ({})", app.pvs.len())),
+    )
+    .row_highlight_style(
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
 
     f.render_stateful_widget(table, area, &mut create_table_state(app.selected_pv_index));
 }

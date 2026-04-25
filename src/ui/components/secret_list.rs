@@ -1,8 +1,8 @@
 use ratatui::{
-    layout::{Rect, Constraint},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Row, Table, Cell},
     Frame,
+    layout::{Constraint, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, Row, Table},
 };
 
 use crate::app::AppState;
@@ -13,10 +13,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(format!("Secrets in namespace: {}", app.current_namespace))
+                    .title(format!("Secrets in namespace: {}", app.current_namespace)),
             )
             .style(Style::default().fg(Color::Gray));
-        
+
         f.render_widget(no_secrets, area);
         return;
     }
@@ -39,7 +39,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(secret.type_.clone()),
                 Cell::from(secret.data_count.to_string()),
                 Cell::from(secret.age.clone()),
-            ]).style(style)
+            ])
+            .style(style)
         })
         .collect();
 
@@ -50,25 +51,32 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Constraint::Percentage(30),
             Constraint::Percentage(15),
             Constraint::Percentage(15),
-        ]
+        ],
     )
-        .header(
-            Row::new(vec!["Name", "Type", "Data", "Age"])
-                .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!("Secrets in namespace: {} ({})", app.current_namespace, app.secrets.len()))
-        )
-        .row_highlight_style(
+    .header(
+        Row::new(vec!["Name", "Type", "Data", "Age"]).style(
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        );
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+    )
+    .block(Block::default().borders(Borders::ALL).title(format!(
+        "Secrets in namespace: {} ({})",
+        app.current_namespace,
+        app.secrets.len()
+    )))
+    .row_highlight_style(
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
 
-    f.render_stateful_widget(table, area, &mut create_table_state(app.selected_secret_index));
+    f.render_stateful_widget(
+        table,
+        area,
+        &mut create_table_state(app.selected_secret_index),
+    );
 }
 
 fn create_table_state(selected: usize) -> ratatui::widgets::TableState {

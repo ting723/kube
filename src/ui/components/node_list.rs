@@ -1,8 +1,8 @@
 use ratatui::{
-    layout::{Rect, Constraint},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Row, Table, Cell},
     Frame,
+    layout::{Constraint, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, Row, Table},
 };
 
 use crate::app::AppState;
@@ -10,13 +10,9 @@ use crate::app::AppState;
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     if app.nodes.is_empty() {
         let no_nodes = ratatui::widgets::Paragraph::new("No nodes found or loading...")
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("Nodes")
-            )
+            .block(Block::default().borders(Borders::ALL).title("Nodes"))
             .style(Style::default().fg(Color::Gray));
-        
+
         f.render_widget(no_nodes, area);
         return;
     }
@@ -48,8 +44,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(roles_str),
                 Cell::from(node.age.clone()),
                 Cell::from(node.version.clone()),
-                Cell::from(node.internal_ip.clone().unwrap_or_else(|| "<none>".to_string())),
-            ]).style(style)
+                Cell::from(
+                    node.internal_ip
+                        .clone()
+                        .unwrap_or_else(|| "<none>".to_string()),
+                ),
+            ])
+            .style(style)
         })
         .collect();
 
@@ -62,25 +63,40 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Constraint::Percentage(10),
             Constraint::Percentage(15),
             Constraint::Percentage(15),
-        ]
+        ],
     )
-        .header(
-            Row::new(vec!["Name", "Status", "Roles", "Age", "Version", "Internal-IP"])
-                .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!("Nodes ({})", app.nodes.len()))
-        )
-        .row_highlight_style(
+    .header(
+        Row::new(vec![
+            "Name",
+            "Status",
+            "Roles",
+            "Age",
+            "Version",
+            "Internal-IP",
+        ])
+        .style(
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        );
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+    )
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!("Nodes ({})", app.nodes.len())),
+    )
+    .row_highlight_style(
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
 
-    f.render_stateful_widget(table, area, &mut create_table_state(app.selected_node_index));
+    f.render_stateful_widget(
+        table,
+        area,
+        &mut create_table_state(app.selected_node_index),
+    );
 }
 
 fn create_table_state(selected: usize) -> ratatui::widgets::TableState {

@@ -1,8 +1,8 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, List, ListItem, ListState},
-    Frame,
 };
 
 use crate::app::AppState;
@@ -38,13 +38,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(format!("Namespaces ({})", app.namespaces.len()))
+                .title(format!("Namespaces ({})", app.namespaces.len())),
         )
         .highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
+                .add_modifier(Modifier::BOLD),
         );
 
     f.render_stateful_widget(list, area, &mut list_state);

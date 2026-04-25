@@ -1,8 +1,8 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Style},
     widgets::{Block, Borders, Paragraph, Wrap},
-    Frame,
 };
 
 use crate::app::AppState;
@@ -78,11 +78,7 @@ GENERAL / 常规:
 "#;
 
     let paragraph = Paragraph::new(help_text)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Help / 帮助")
-        )
+        .block(Block::default().borders(Borders::ALL).title("Help / 帮助"))
         .style(Style::default().fg(Color::White))
         .wrap(Wrap { trim: true });
 

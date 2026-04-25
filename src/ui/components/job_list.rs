@@ -1,8 +1,8 @@
 use ratatui::{
-    layout::{Rect, Constraint},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Row, Table, Cell},
     Frame,
+    layout::{Constraint, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, Row, Table},
 };
 
 use crate::app::AppState;
@@ -10,13 +10,9 @@ use crate::app::AppState;
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     if app.jobs.is_empty() {
         let no_jobs = ratatui::widgets::Paragraph::new("No jobs found or loading...")
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("Jobs")
-            )
+            .block(Block::default().borders(Borders::ALL).title("Jobs"))
             .style(Style::default().fg(Color::Gray));
-        
+
         f.render_widget(no_jobs, area);
         return;
     }
@@ -41,10 +37,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 _ => Color::Gray,
             };
 
-            let completions = job.completions
+            let completions = job
+                .completions
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| "1".to_string());
-            let duration = job.duration
+            let duration = job
+                .duration
                 .as_ref()
                 .unwrap_or(&"<none>".to_string())
                 .clone();
@@ -55,7 +53,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(duration),
                 Cell::from(job.status.clone()).style(Style::default().fg(status_color)),
                 Cell::from(job.age.clone()),
-            ]).style(style)
+            ])
+            .style(style)
         })
         .collect();
 
@@ -67,23 +66,26 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Constraint::Percentage(15),
             Constraint::Percentage(15),
             Constraint::Percentage(25),
-        ]
+        ],
     )
-        .header(
-            Row::new(vec!["Name", "Completions", "Duration", "Status", "Age"])
-                .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!("Jobs ({})", app.jobs.len()))
-        )
-        .row_highlight_style(
+    .header(
+        Row::new(vec!["Name", "Completions", "Duration", "Status", "Age"]).style(
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        );
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+    )
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!("Jobs ({})", app.jobs.len())),
+    )
+    .row_highlight_style(
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
 
     f.render_stateful_widget(table, area, &mut create_table_state(app.selected_job_index));
 }

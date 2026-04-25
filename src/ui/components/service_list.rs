@@ -1,8 +1,8 @@
 use ratatui::{
-    layout::{Rect, Constraint},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Row, Table, Cell},
     Frame,
+    layout::{Constraint, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, Row, Table},
 };
 
 use crate::app::AppState;
@@ -13,10 +13,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(format!("Services in namespace: {}", app.current_namespace))
+                    .title(format!("Services in namespace: {}", app.current_namespace)),
             )
             .style(Style::default().fg(Color::Gray));
-        
+
         f.render_widget(no_services, area);
         return;
     }
@@ -51,10 +51,16 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(service.name.clone()),
                 Cell::from(service.type_.clone()),
                 Cell::from(service.cluster_ip.clone()),
-                Cell::from(service.external_ip.clone().unwrap_or_else(|| "<none>".to_string())),
+                Cell::from(
+                    service
+                        .external_ip
+                        .clone()
+                        .unwrap_or_else(|| "<none>".to_string()),
+                ),
                 Cell::from(ports_str),
                 Cell::from(service.age.clone()),
-            ]).style(style)
+            ])
+            .style(style)
         })
         .collect();
 
@@ -67,25 +73,40 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Constraint::Percentage(15),
             Constraint::Percentage(20),
             Constraint::Percentage(10),
-        ]
+        ],
     )
-        .header(
-            Row::new(vec!["Name", "Type", "Cluster-IP", "External-IP", "Ports", "Age"])
-                .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!("Services in namespace: {} ({})", app.current_namespace, app.services.len()))
-        )
-        .row_highlight_style(
+    .header(
+        Row::new(vec![
+            "Name",
+            "Type",
+            "Cluster-IP",
+            "External-IP",
+            "Ports",
+            "Age",
+        ])
+        .style(
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        );
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+    )
+    .block(Block::default().borders(Borders::ALL).title(format!(
+        "Services in namespace: {} ({})",
+        app.current_namespace,
+        app.services.len()
+    )))
+    .row_highlight_style(
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
 
-    f.render_stateful_widget(table, area, &mut create_table_state(app.selected_service_index));
+    f.render_stateful_widget(
+        table,
+        area,
+        &mut create_table_state(app.selected_service_index),
+    );
 }
 
 fn create_table_state(selected: usize) -> ratatui::widgets::TableState {

@@ -4,13 +4,25 @@ use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
 pub enum ConfirmAction {
-    DeletePod { namespace: String, name: String },
+    DeletePod {
+        namespace: String,
+        name: String,
+    },
     #[allow(dead_code)]
-    DeleteService { namespace: String, name: String },
+    DeleteService {
+        namespace: String,
+        name: String,
+    },
     #[allow(dead_code)]
-    DeleteConfigMap { namespace: String, name: String },
+    DeleteConfigMap {
+        namespace: String,
+        name: String,
+    },
     #[allow(dead_code)]
-    DeleteSecret { namespace: String, name: String },
+    DeleteSecret {
+        namespace: String,
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -88,14 +100,14 @@ pub struct AppState {
     pub logs_refresh_interval: Duration,
     pub last_logs_refresh: Instant,
     // 全局刷新状态
-    pub global_refresh_enabled: bool,  // 新增：全局刷新开关
-    pub refresh_status_text: String,   // 新增：刷新状态显示
+    pub global_refresh_enabled: bool, // 新增：全局刷新开关
+    pub refresh_status_text: String,  // 新增：刷新状态显示
     // Describe内容自动刷新
-    pub describe_auto_refresh: bool,   // 新增：describe自动刷新
+    pub describe_auto_refresh: bool,    // 新增：describe自动刷新
     pub last_describe_refresh: Instant, // 新增：describe刷新时间记录
-    // YAML内容自动刷新  
-    pub yaml_auto_refresh: bool,       // 新增：YAML自动刷新
-    pub last_yaml_refresh: Instant,    // 新增：YAML刷新时间记录
+    // YAML内容自动刷新
+    pub yaml_auto_refresh: bool,    // 新增：YAML自动刷新
+    pub last_yaml_refresh: Instant, // 新增：YAML刷新时间记录
     // 执行操作标志
     pub pending_exec: Option<String>,
     // YAML查看内容
@@ -104,9 +116,9 @@ pub struct AppState {
     // 鼠标捕获状态
     pub mouse_capture_enabled: bool,
     // 双模式切换：在YAML/Describe模式下选择文本选择模式还是滚轮模式
-    pub text_selection_mode: bool,  // true=文本选择模式, false=滚轮模式
+    pub text_selection_mode: bool, // true=文本选择模式, false=滚轮模式
     // 国际化设置
-    pub language_chinese: bool,  // true=中文, false=英文
+    pub language_chinese: bool, // true=中文, false=英文
     // 资源监控数据
     pub pod_metrics: Vec<crate::kubectl::types::PodMetrics>,
     pub metrics_scroll: usize,
@@ -162,10 +174,10 @@ impl Default for AppState {
             global_refresh_enabled: true,
             refresh_status_text: String::new(),
             // Describe内容自动刷新
-            describe_auto_refresh: false,  // 默认关闭，避免频繁刷新
+            describe_auto_refresh: false, // 默认关闭，避免频繁刷新
             last_describe_refresh: Instant::now(),
             // YAML内容自动刷新
-            yaml_auto_refresh: false,      // 默认关闭，避免频繁刷新
+            yaml_auto_refresh: false, // 默认关闭，避免频繁刷新
             last_yaml_refresh: Instant::now(),
             pending_exec: None,
             // YAML查看内容
@@ -193,23 +205,31 @@ impl AppState {
     }
 
     pub fn should_refresh(&self) -> bool {
-        self.global_refresh_enabled && self.auto_refresh && self.last_update.elapsed() >= self.refresh_interval
+        self.global_refresh_enabled
+            && self.auto_refresh
+            && self.last_update.elapsed() >= self.refresh_interval
     }
 
     pub fn should_refresh_logs(&self) -> bool {
-        self.global_refresh_enabled && self.logs_auto_refresh && self.mode == AppMode::Logs 
+        self.global_refresh_enabled
+            && self.logs_auto_refresh
+            && self.mode == AppMode::Logs
             && self.last_logs_refresh.elapsed() >= self.logs_refresh_interval
     }
 
     // 新增：判断是否需要刷新describe内容
     pub fn should_refresh_describe(&self) -> bool {
-        self.global_refresh_enabled && self.describe_auto_refresh && self.mode == AppMode::Describe
+        self.global_refresh_enabled
+            && self.describe_auto_refresh
+            && self.mode == AppMode::Describe
             && self.last_describe_refresh.elapsed() >= self.refresh_interval
     }
 
     // 新增：判断是否需要刷新YAML内容
     pub fn should_refresh_yaml(&self) -> bool {
-        self.global_refresh_enabled && self.yaml_auto_refresh && self.mode == AppMode::YamlView
+        self.global_refresh_enabled
+            && self.yaml_auto_refresh
+            && self.mode == AppMode::YamlView
             && self.last_yaml_refresh.elapsed() >= self.refresh_interval
     }
 
@@ -251,20 +271,32 @@ impl AppState {
             };
         } else {
             let mut status_parts = Vec::new();
-            
+
             if self.auto_refresh {
-                status_parts.push(if self.language_chinese { "列表" } else { "Lists" });
+                status_parts.push(if self.language_chinese {
+                    "列表"
+                } else {
+                    "Lists"
+                });
             }
             if self.logs_auto_refresh {
-                status_parts.push(if self.language_chinese { "日志" } else { "Logs" });
+                status_parts.push(if self.language_chinese {
+                    "日志"
+                } else {
+                    "Logs"
+                });
             }
             if self.describe_auto_refresh {
-                status_parts.push(if self.language_chinese { "描述" } else { "Describe" });
+                status_parts.push(if self.language_chinese {
+                    "描述"
+                } else {
+                    "Describe"
+                });
             }
             if self.yaml_auto_refresh {
                 status_parts.push("YAML");
             }
-            
+
             if status_parts.is_empty() {
                 self.refresh_status_text = if self.language_chinese {
                     "[无自动刷新]".to_string()
@@ -272,7 +304,11 @@ impl AppState {
                     "[No Auto-refresh]".to_string()
                 };
             } else {
-                let prefix = if self.language_chinese { "[自动刷新: " } else { "[Auto-refresh: " };
+                let prefix = if self.language_chinese {
+                    "[自动刷新: "
+                } else {
+                    "[Auto-refresh: "
+                };
                 self.refresh_status_text = format!("{}{} ]", prefix, status_parts.join(", "));
             }
         }
@@ -281,9 +317,17 @@ impl AppState {
     // 新增：强制刷新当前模式的内容
     pub fn force_refresh_current_mode(&mut self) {
         match self.mode {
-            AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList 
-            | AppMode::PVList | AppMode::ConfigMapList | AppMode::SecretList => {
+            AppMode::NamespaceList
+            | AppMode::PodList
+            | AppMode::ServiceList
+            | AppMode::NodeList
+            | AppMode::DeploymentList
+            | AppMode::JobList
+            | AppMode::DaemonSetList
+            | AppMode::PVCList
+            | AppMode::PVList
+            | AppMode::ConfigMapList
+            | AppMode::SecretList => {
                 // 强制刷新资源列表
                 self.refresh_data();
             }
@@ -331,20 +375,29 @@ impl AppState {
         match key_event.code {
             KeyCode::Char('q') => self.should_quit = true,
             KeyCode::Char('?') | KeyCode::F(1) => self.mode = AppMode::Help,
-            KeyCode::Esc => {
-                match self.mode {
-                    AppMode::Help | AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
-                        self.reset_scroll();
-                        self.mode = self.get_previous_mode();
-                    }
-                    AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-                    | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-                    | AppMode::ConfigMapList | AppMode::SecretList => {
-                        self.mode = AppMode::NamespaceList;
-                    }
-                    _ => {}
+            KeyCode::Esc => match self.mode {
+                AppMode::Help
+                | AppMode::Logs
+                | AppMode::Describe
+                | AppMode::YamlView
+                | AppMode::TopView => {
+                    self.reset_scroll();
+                    self.mode = self.get_previous_mode();
                 }
-            }
+                AppMode::PodList
+                | AppMode::ServiceList
+                | AppMode::NodeList
+                | AppMode::DeploymentList
+                | AppMode::JobList
+                | AppMode::DaemonSetList
+                | AppMode::PVCList
+                | AppMode::PVList
+                | AppMode::ConfigMapList
+                | AppMode::SecretList => {
+                    self.mode = AppMode::NamespaceList;
+                }
+                _ => {}
+            },
             // 滚动操作（仅在 Logs、Describe、YamlView 和 TopView 模式下）
             KeyCode::Char('j') => {
                 match self.mode {
@@ -371,11 +424,11 @@ impl AppState {
             // 资源操作
             KeyCode::Enter => self.handle_enter(),
             KeyCode::Char(' ') => self.handle_describe(), // Space 键查看详情
-            KeyCode::Char('L') => self.handle_logs(),       // L 查看日志
-            KeyCode::Char('D') => self.handle_delete(),     // D 删除（需确认）
-            KeyCode::Char('E') => self.handle_exec(),       // E 进入容器
-            KeyCode::Char('Y') => self.handle_yaml_view(),   // Y 查看YAML配置
-            KeyCode::Char('T') => self.handle_top_view(),    // T 查看资源使用
+            KeyCode::Char('L') => self.handle_logs(),     // L 查看日志
+            KeyCode::Char('D') => self.handle_delete(),   // D 删除（需确认）
+            KeyCode::Char('E') => self.handle_exec(),     // E 进入容器
+            KeyCode::Char('Y') => self.handle_yaml_view(), // Y 查看YAML配置
+            KeyCode::Char('T') => self.handle_top_view(), // T 查看资源使用
             // 搜索
             KeyCode::Char('/') => self.start_search(),
             KeyCode::Char('n') => self.search_next(),
@@ -417,14 +470,12 @@ impl AppState {
             KeyCode::Tab => self.switch_panel(),
             KeyCode::BackTab => self.switch_panel_left(), // Shift+Tab 向后切换
             // M键在YAML/Describe模式下切换鼠标模式
-            KeyCode::Char('M') | KeyCode::Char('m') => {
-                match self.mode {
-                    AppMode::Describe | AppMode::YamlView | AppMode::Logs => {
-                        self.toggle_mouse_mode();
-                    }
-                    _ => {}
+            KeyCode::Char('M') | KeyCode::Char('m') => match self.mode {
+                AppMode::Describe | AppMode::YamlView | AppMode::Logs => {
+                    self.toggle_mouse_mode();
                 }
-            }
+                _ => {}
+            },
             // I键切换语言（International）
             KeyCode::Char('I') | KeyCode::Char('i') => {
                 self.toggle_language();
@@ -619,9 +670,16 @@ impl AppState {
                 }
             }
             // 在资源列表模式下，Enter键也可以进入Describe模式
-            AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-            | AppMode::ConfigMapList | AppMode::SecretList => {
+            AppMode::PodList
+            | AppMode::ServiceList
+            | AppMode::NodeList
+            | AppMode::DeploymentList
+            | AppMode::JobList
+            | AppMode::DaemonSetList
+            | AppMode::PVCList
+            | AppMode::PVList
+            | AppMode::ConfigMapList
+            | AppMode::SecretList => {
                 self.handle_describe();
             }
             _ => {}
@@ -852,9 +910,16 @@ impl AppState {
     // 操作相关方法
     fn handle_describe(&mut self) {
         match self.mode {
-            AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-            | AppMode::ConfigMapList | AppMode::SecretList => {
+            AppMode::PodList
+            | AppMode::ServiceList
+            | AppMode::NodeList
+            | AppMode::DeploymentList
+            | AppMode::JobList
+            | AppMode::DaemonSetList
+            | AppMode::PVCList
+            | AppMode::PVList
+            | AppMode::ConfigMapList
+            | AppMode::SecretList => {
                 self.previous_mode = self.mode.clone();
                 self.reset_scroll();
                 // 清理之前的describe内容
@@ -897,7 +962,10 @@ impl AppState {
         match self.mode {
             AppMode::PodList => {
                 if let Some(pod) = self.get_selected_pod() {
-                    let cmd = format!("kubectl exec -it -n {} {} -- /bin/sh", self.current_namespace, pod.name);
+                    let cmd = format!(
+                        "kubectl exec -it -n {} {} -- /bin/sh",
+                        self.current_namespace, pod.name
+                    );
                     self.set_current_command(&cmd);
                     self.pending_exec = Some(cmd);
                 }
@@ -924,9 +992,16 @@ impl AppState {
     fn start_search(&mut self) {
         // 只在列表模式下才能搜索
         match self.mode {
-            AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | AppMode::NodeList 
-            | AppMode::DeploymentList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-            | AppMode::ConfigMapList | AppMode::SecretList => {
+            AppMode::NamespaceList
+            | AppMode::PodList
+            | AppMode::ServiceList
+            | AppMode::NodeList
+            | AppMode::DeploymentList
+            | AppMode::DaemonSetList
+            | AppMode::PVCList
+            | AppMode::PVList
+            | AppMode::ConfigMapList
+            | AppMode::SecretList => {
                 self.previous_mode = self.mode.clone();
                 self.search_mode = true;
                 self.search_query.clear();
@@ -1149,9 +1224,16 @@ impl AppState {
     // 处理YAML视图
     fn handle_yaml_view(&mut self) {
         match self.mode {
-            AppMode::PodList | AppMode::ServiceList | AppMode::DeploymentList | AppMode::JobList |
-            AppMode::DaemonSetList | AppMode::NodeList | AppMode::ConfigMapList | AppMode::SecretList |
-            AppMode::PVCList | AppMode::PVList => {
+            AppMode::PodList
+            | AppMode::ServiceList
+            | AppMode::DeploymentList
+            | AppMode::JobList
+            | AppMode::DaemonSetList
+            | AppMode::NodeList
+            | AppMode::ConfigMapList
+            | AppMode::SecretList
+            | AppMode::PVCList
+            | AppMode::PVList => {
                 self.previous_mode = self.mode.clone();
                 self.mode = AppMode::YamlView;
                 self.yaml_scroll = 0;

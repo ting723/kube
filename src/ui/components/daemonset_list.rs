@@ -1,8 +1,8 @@
 use ratatui::{
-    layout::{Rect, Constraint},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Row, Table, Cell},
     Frame,
+    layout::{Constraint, Rect},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Cell, Row, Table},
 };
 
 use crate::app::AppState;
@@ -10,13 +10,9 @@ use crate::app::AppState;
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     if app.daemonsets.is_empty() {
         let no_daemonsets = ratatui::widgets::Paragraph::new("No daemonsets found or loading...")
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("DaemonSets")
-            )
+            .block(Block::default().borders(Borders::ALL).title("DaemonSets"))
             .style(Style::default().fg(Color::Gray));
-        
+
         f.render_widget(no_daemonsets, area);
         return;
     }
@@ -42,7 +38,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Cell::from(daemonset.up_to_date.to_string()),
                 Cell::from(daemonset.available.to_string()),
                 Cell::from(daemonset.age.clone()),
-            ]).style(style)
+            ])
+            .style(style)
         })
         .collect();
 
@@ -56,25 +53,41 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Constraint::Percentage(15),
             Constraint::Percentage(15),
             Constraint::Percentage(15),
-        ]
+        ],
     )
-        .header(
-            Row::new(vec!["Name", "Desired", "Current", "Ready", "Up-to-date", "Available", "Age"])
-                .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!("DaemonSets ({})", app.daemonsets.len()))
-        )
-        .row_highlight_style(
+    .header(
+        Row::new(vec![
+            "Name",
+            "Desired",
+            "Current",
+            "Ready",
+            "Up-to-date",
+            "Available",
+            "Age",
+        ])
+        .style(
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        );
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+    )
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!("DaemonSets ({})", app.daemonsets.len())),
+    )
+    .row_highlight_style(
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
 
-    f.render_stateful_widget(table, area, &mut create_table_state(app.selected_daemonset_index));
+    f.render_stateful_widget(
+        table,
+        area,
+        &mut create_table_state(app.selected_daemonset_index),
+    );
 }
 
 fn create_table_state(selected: usize) -> ratatui::widgets::TableState {

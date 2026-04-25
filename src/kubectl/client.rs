@@ -2,8 +2,8 @@ use anyhow::{Result, anyhow};
 use serde_json::Value;
 use std::time::Duration;
 
-use super::types::*;
 use super::commands;
+use super::types::*;
 
 pub struct KubectlClient {
     // timeout字段保留以备将来使用
@@ -35,7 +35,7 @@ impl KubectlClient {
 
     pub async fn get_namespaces(&self) -> Result<Vec<Namespace>> {
         let namespaces = commands::get_namespaces()?;
-        
+
         Ok(namespaces
             .into_iter()
             .map(|name| Namespace {
@@ -55,7 +55,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut pods = Vec::new();
-        
+
         for item in items {
             if let Ok(pod) = self.parse_pod(item) {
                 pods.push(pod);
@@ -74,7 +74,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut services = Vec::new();
-        
+
         for item in items {
             if let Ok(service) = self.parse_service(item) {
                 services.push(service);
@@ -94,7 +94,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut nodes = Vec::new();
-        
+
         for item in items {
             if let Ok(node) = self.parse_node(item) {
                 nodes.push(node);
@@ -114,7 +114,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut configmaps = Vec::new();
-        
+
         for item in items {
             if let Ok(configmap) = self.parse_configmap(item) {
                 configmaps.push(configmap);
@@ -134,7 +134,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut secrets = Vec::new();
-        
+
         for item in items {
             if let Ok(secret) = self.parse_secret(item) {
                 secrets.push(secret);
@@ -154,7 +154,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut deployments = Vec::new();
-        
+
         for item in items {
             if let Ok(deployment) = self.parse_deployment(item) {
                 deployments.push(deployment);
@@ -174,7 +174,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut jobs = Vec::new();
-        
+
         for item in items {
             if let Ok(job) = self.parse_job(item) {
                 jobs.push(job);
@@ -194,7 +194,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut daemonsets = Vec::new();
-        
+
         for item in items {
             if let Ok(daemonset) = self.parse_daemonset(item) {
                 daemonsets.push(daemonset);
@@ -214,7 +214,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut pvcs = Vec::new();
-        
+
         for item in items {
             if let Ok(pvc) = self.parse_pvc(item) {
                 pvcs.push(pvc);
@@ -234,7 +234,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Invalid JSON response: missing items array"))?;
 
         let mut pvs = Vec::new();
-        
+
         for item in items {
             if let Ok(pv) = self.parse_pv(item) {
                 pvs.push(pv);
@@ -244,7 +244,12 @@ impl KubectlClient {
         Ok(pvs)
     }
 
-    pub async fn get_pod_logs(&self, namespace: &str, pod_name: &str, lines: u32) -> Result<Vec<String>> {
+    pub async fn get_pod_logs(
+        &self,
+        namespace: &str,
+        pod_name: &str,
+        lines: u32,
+    ) -> Result<Vec<String>> {
         let logs = commands::get_pod_logs(namespace, pod_name, lines)?;
         Ok(logs.lines().map(|line| line.to_string()).collect())
     }
@@ -257,7 +262,11 @@ impl KubectlClient {
         commands::describe_service(namespace, service_name)
     }
 
-    pub async fn describe_deployment(&self, namespace: &str, deployment_name: &str) -> Result<String> {
+    pub async fn describe_deployment(
+        &self,
+        namespace: &str,
+        deployment_name: &str,
+    ) -> Result<String> {
         commands::describe_deployment(namespace, deployment_name)
     }
 
@@ -265,7 +274,11 @@ impl KubectlClient {
         commands::describe_job(namespace, job_name)
     }
 
-    pub async fn describe_daemonset(&self, namespace: &str, daemonset_name: &str) -> Result<String> {
+    pub async fn describe_daemonset(
+        &self,
+        namespace: &str,
+        daemonset_name: &str,
+    ) -> Result<String> {
         commands::describe_daemonset(namespace, daemonset_name)
     }
 
@@ -273,7 +286,11 @@ impl KubectlClient {
         commands::describe_node(node_name)
     }
 
-    pub async fn describe_configmap(&self, namespace: &str, configmap_name: &str) -> Result<String> {
+    pub async fn describe_configmap(
+        &self,
+        namespace: &str,
+        configmap_name: &str,
+    ) -> Result<String> {
         commands::describe_configmap(namespace, configmap_name)
     }
 
@@ -309,15 +326,13 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Missing pod namespace"))?
             .to_string();
 
-        let phase = status["phase"]
-            .as_str()
-            .unwrap_or("Unknown")
-            .to_string();
+        let phase = status["phase"].as_str().unwrap_or("Unknown").to_string();
 
         // Calculate ready containers
         let container_statuses = status["containerStatuses"].as_array();
         let ready_count = if let Some(statuses) = container_statuses {
-            statuses.iter()
+            statuses
+                .iter()
                 .filter(|status| status["ready"].as_bool().unwrap_or(false))
                 .count()
         } else {
@@ -333,7 +348,8 @@ impl KubectlClient {
 
         // Calculate restart count
         let restarts = if let Some(statuses) = container_statuses {
-            statuses.iter()
+            statuses
+                .iter()
                 .map(|status| status["restartCount"].as_u64().unwrap_or(0) as u32)
                 .sum()
         } else {
@@ -351,7 +367,7 @@ impl KubectlClient {
             namespace,
             status: PodStatus {
                 phase,
-                conditions: None, // Simplified for now
+                conditions: None,         // Simplified for now
                 container_statuses: None, // Simplified for now
             },
             ready,
@@ -376,15 +392,9 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Missing service namespace"))?
             .to_string();
 
-        let type_ = spec["type"]
-            .as_str()
-            .unwrap_or("ClusterIP")
-            .to_string();
+        let type_ = spec["type"].as_str().unwrap_or("ClusterIP").to_string();
 
-        let cluster_ip = spec["clusterIP"]
-            .as_str()
-            .unwrap_or("None")
-            .to_string();
+        let cluster_ip = spec["clusterIP"].as_str().unwrap_or("None").to_string();
 
         let external_ip = spec["externalIPs"]
             .as_array()
@@ -394,7 +404,8 @@ impl KubectlClient {
 
         // Parse ports
         let ports = if let Some(ports_array) = spec["ports"].as_array() {
-            ports_array.iter()
+            ports_array
+                .iter()
                 .filter_map(|port| {
                     Some(ServicePort {
                         name: port["name"].as_str().map(|s| s.to_string()),
@@ -426,7 +437,7 @@ impl KubectlClient {
             if let Ok(created) = chrono::DateTime::parse_from_rfc3339(timestamp) {
                 let now = chrono::Utc::now();
                 let duration = now.signed_duration_since(created.with_timezone(&chrono::Utc));
-                
+
                 let days = duration.num_days();
                 let hours = duration.num_hours() % 24;
                 let minutes = duration.num_minutes() % 60;
@@ -459,10 +470,10 @@ impl KubectlClient {
 
         // 获取节点状态
         let node_status = if let Some(conditions) = status["conditions"].as_array() {
-            let ready_condition = conditions.iter().find(|condition| {
-                condition["type"].as_str() == Some("Ready")
-            });
-            
+            let ready_condition = conditions
+                .iter()
+                .find(|condition| condition["type"].as_str() == Some("Ready"));
+
             if let Some(condition) = ready_condition {
                 if condition["status"].as_str() == Some("True") {
                     "Ready".to_string()
@@ -481,7 +492,8 @@ impl KubectlClient {
             let mut node_roles = Vec::new();
             for (key, _) in labels {
                 if key.starts_with("node-role.kubernetes.io/") {
-                    let role = key.strip_prefix("node-role.kubernetes.io/")
+                    let role = key
+                        .strip_prefix("node-role.kubernetes.io/")
                         .unwrap_or("unknown")
                         .to_string();
                     node_roles.push(role);
@@ -508,8 +520,12 @@ impl KubectlClient {
         if let Some(addresses) = status["addresses"].as_array() {
             for addr in addresses {
                 match addr["type"].as_str() {
-                    Some("InternalIP") => internal_ip = addr["address"].as_str().map(|s| s.to_string()),
-                    Some("ExternalIP") => external_ip = addr["address"].as_str().map(|s| s.to_string()),
+                    Some("InternalIP") => {
+                        internal_ip = addr["address"].as_str().map(|s| s.to_string())
+                    }
+                    Some("ExternalIP") => {
+                        external_ip = addr["address"].as_str().map(|s| s.to_string())
+                    }
                     _ => {}
                 }
             }
@@ -585,10 +601,7 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Missing secret namespace"))?
             .to_string();
 
-        let type_ = item["type"]
-            .as_str()
-            .unwrap_or("Opaque")
-            .to_string();
+        let type_ = item["type"].as_str().unwrap_or("Opaque").to_string();
 
         let data_count = if let Some(data_obj) = data.as_object() {
             data_obj.len()
@@ -626,7 +639,7 @@ impl KubectlClient {
         let replicas = spec["replicas"].as_u64().unwrap_or(0) as u32;
         let ready_replicas = status["readyReplicas"].as_u64().unwrap_or(0) as u32;
         let ready = format!("{}/{}", ready_replicas, replicas);
-        
+
         let up_to_date = status["updatedReplicas"].as_u64().unwrap_or(0) as u32;
         let available = status["availableReplicas"].as_u64().unwrap_or(0) as u32;
 
@@ -660,7 +673,7 @@ impl KubectlClient {
 
         let completions = spec["completions"].as_u64().map(|c| c as u32);
         let successful = status["succeeded"].as_u64().unwrap_or(0) as u32;
-        
+
         // 计算作业状态
         let job_status = if status["succeeded"].as_u64().unwrap_or(0) > 0 {
             "Complete".to_string()
@@ -675,7 +688,7 @@ impl KubectlClient {
         // 计算持续时间
         let duration = if let (Some(_start_time), Some(_completion_time)) = (
             status["startTime"].as_str(),
-            status["completionTime"].as_str()
+            status["completionTime"].as_str(),
         ) {
             // 这里可以计算真实的持续时间，简化处理
             Some("<calculated>".to_string())
@@ -748,14 +761,9 @@ impl KubectlClient {
             .ok_or_else(|| anyhow!("Missing PVC namespace"))?
             .to_string();
 
-        let pvc_status = status["phase"]
-            .as_str()
-            .unwrap_or("Unknown")
-            .to_string();
+        let pvc_status = status["phase"].as_str().unwrap_or("Unknown").to_string();
 
-        let volume = status["volumeName"]
-            .as_str()
-            .map(|s| s.to_string());
+        let volume = status["volumeName"].as_str().map(|s| s.to_string());
 
         let capacity = status["capacity"]["storage"]
             .as_str()
@@ -764,16 +772,15 @@ impl KubectlClient {
         let access_modes = spec["accessModes"]
             .as_array()
             .map(|modes| {
-                modes.iter()
+                modes
+                    .iter()
                     .filter_map(|mode| mode.as_str())
                     .map(|s| s.to_string())
                     .collect()
             })
             .unwrap_or_default();
 
-        let storage_class = spec["storageClassName"]
-            .as_str()
-            .map(|s| s.to_string());
+        let storage_class = spec["storageClassName"].as_str().map(|s| s.to_string());
 
         let age = self.calculate_age(metadata["creationTimestamp"].as_str());
 
@@ -808,7 +815,8 @@ impl KubectlClient {
         let access_modes = spec["accessModes"]
             .as_array()
             .map(|modes| {
-                modes.iter()
+                modes
+                    .iter()
                     .filter_map(|mode| mode.as_str())
                     .map(|s| s.to_string())
                     .collect()
@@ -820,22 +828,17 @@ impl KubectlClient {
             .unwrap_or("Retain")
             .to_string();
 
-        let pv_status = status["phase"]
-            .as_str()
-            .unwrap_or("Unknown")
-            .to_string();
+        let pv_status = status["phase"].as_str().unwrap_or("Unknown").to_string();
 
-        let claim = spec["claimRef"]
-            .as_object()
-            .map(|claim_ref| {
-                format!("{}/{}", 
-                    claim_ref["namespace"].as_str().unwrap_or(""),
-                    claim_ref["name"].as_str().unwrap_or(""))
-            });
+        let claim = spec["claimRef"].as_object().map(|claim_ref| {
+            format!(
+                "{}/{}",
+                claim_ref["namespace"].as_str().unwrap_or(""),
+                claim_ref["name"].as_str().unwrap_or("")
+            )
+        });
 
-        let storage_class = spec["storageClassName"]
-            .as_str()
-            .map(|s| s.to_string());
+        let storage_class = spec["storageClassName"].as_str().map(|s| s.to_string());
 
         let age = self.calculate_age(metadata["creationTimestamp"].as_str());
 
@@ -852,7 +855,12 @@ impl KubectlClient {
     }
 
     // YAML配置相关方法
-    pub async fn get_yaml(&self, resource_type: &str, namespace: Option<&str>, name: &str) -> Result<String> {
+    pub async fn get_yaml(
+        &self,
+        resource_type: &str,
+        namespace: Option<&str>,
+        name: &str,
+    ) -> Result<String> {
         match resource_type {
             "pod" => {
                 if let Some(ns) = namespace {
@@ -860,35 +868,35 @@ impl KubectlClient {
                 } else {
                     Err(anyhow!("Pod requires namespace"))
                 }
-            },
+            }
             "service" => {
                 if let Some(ns) = namespace {
                     commands::get_service_yaml(ns, name)
                 } else {
                     Err(anyhow!("Service requires namespace"))
                 }
-            },
+            }
             "deployment" => {
                 if let Some(ns) = namespace {
                     commands::get_deployment_yaml(ns, name)
                 } else {
                     Err(anyhow!("Deployment requires namespace"))
                 }
-            },
+            }
             "job" => {
                 if let Some(ns) = namespace {
                     commands::get_job_yaml(ns, name)
                 } else {
                     Err(anyhow!("Job requires namespace"))
                 }
-            },
+            }
             "daemonset" => {
                 if let Some(ns) = namespace {
                     commands::get_daemonset_yaml(ns, name)
                 } else {
                     Err(anyhow!("DaemonSet requires namespace"))
                 }
-            },
+            }
             "node" => commands::get_node_yaml(name),
             "configmap" => {
                 if let Some(ns) = namespace {
@@ -896,23 +904,23 @@ impl KubectlClient {
                 } else {
                     Err(anyhow!("ConfigMap requires namespace"))
                 }
-            },
+            }
             "secret" => {
                 if let Some(ns) = namespace {
                     commands::get_secret_yaml(ns, name)
                 } else {
                     Err(anyhow!("Secret requires namespace"))
                 }
-            },
+            }
             "pvc" => {
                 if let Some(ns) = namespace {
                     commands::get_pvc_yaml(ns, name)
                 } else {
                     Err(anyhow!("PVC requires namespace"))
                 }
-            },
+            }
             "pv" => commands::get_pv_yaml(name),
-            _ => Err(anyhow!("Unsupported resource type: {}", resource_type))
+            _ => Err(anyhow!("Unsupported resource type: {}", resource_type)),
         }
     }
 
@@ -920,17 +928,17 @@ impl KubectlClient {
     pub async fn get_pod_metrics(&self, namespace: &str) -> Result<Vec<ResourceMetrics>> {
         let output = commands::get_top_pods(namespace)?;
         let mut metrics = Vec::new();
-        
+
         for line in output.lines() {
             if line.trim().is_empty() {
                 continue;
             }
-            
+
             if let Ok(metric) = self.parse_pod_metrics_line(line, namespace).await {
                 metrics.push(metric);
             }
         }
-        
+
         Ok(metrics)
     }
 
@@ -939,18 +947,21 @@ impl KubectlClient {
         if parts.len() < 3 {
             return Err(anyhow!("Invalid metrics line format"));
         }
-        
+
         let name = parts[0].to_string();
         let cpu = parts[1].to_string();
         let memory = parts[2].to_string();
-        
+
         // 尝试解析CPU和内存百分比（如果有的话）
         let cpu_percentage = self.parse_cpu_percentage(&cpu);
         let memory_percentage = self.parse_memory_percentage(&memory);
-        
+
         // 获取容器级别的详细信息
-        let containers = self.get_container_metrics(namespace, &name).await.unwrap_or_default();
-        
+        let containers = self
+            .get_container_metrics(namespace, &name)
+            .await
+            .unwrap_or_default();
+
         Ok(ResourceMetrics {
             name,
             namespace: namespace.to_string(),
@@ -962,36 +973,43 @@ impl KubectlClient {
         })
     }
 
-    async fn get_container_metrics(&self, namespace: &str, pod_name: &str) -> Result<Vec<crate::kubectl::types::ContainerMetrics>> {
+    async fn get_container_metrics(
+        &self,
+        namespace: &str,
+        pod_name: &str,
+    ) -> Result<Vec<crate::kubectl::types::ContainerMetrics>> {
         let output = commands::get_top_pod(namespace, pod_name)?;
         let mut containers = Vec::new();
-        
+
         for line in output.lines() {
             if line.trim().is_empty() {
                 continue;
             }
-            
+
             if let Ok(container) = self.parse_container_metrics_line(line) {
                 containers.push(container);
             }
         }
-        
+
         Ok(containers)
     }
 
-    fn parse_container_metrics_line(&self, line: &str) -> Result<crate::kubectl::types::ContainerMetrics> {
+    fn parse_container_metrics_line(
+        &self,
+        line: &str,
+    ) -> Result<crate::kubectl::types::ContainerMetrics> {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 4 {
             return Err(anyhow!("Invalid container metrics line format"));
         }
-        
+
         let name = parts[1].to_string(); // 第一列是pod名，第二列是容器名
         let cpu = parts[2].to_string();
         let memory = parts[3].to_string();
-        
+
         let cpu_percentage = self.parse_cpu_percentage(&cpu);
         let memory_percentage = self.parse_memory_percentage(&memory);
-        
+
         Ok(crate::kubectl::types::ContainerMetrics {
             name,
             cpu,
@@ -1003,7 +1021,11 @@ impl KubectlClient {
 
     fn parse_cpu_percentage(&self, cpu_str: &str) -> Option<f64> {
         if cpu_str.ends_with('m') {
-            cpu_str.trim_end_matches('m').parse::<f64>().ok().map(|v| v / 10.0) // 毫核转换为百分比
+            cpu_str
+                .trim_end_matches('m')
+                .parse::<f64>()
+                .ok()
+                .map(|v| v / 10.0) // 毫核转换为百分比
         } else {
             cpu_str.parse::<f64>().ok().map(|v| v * 100.0) // 核转换为百分比
         }
