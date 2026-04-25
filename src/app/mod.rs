@@ -5,6 +5,4 @@ pub mod handlers;
 pub mod data_loader;
 
 // Re-export commonly used types
-#[allow(unused_imports)]
 pub use state::{AppState, AppMode, ConfirmAction};
-pub use config::UserConfig;

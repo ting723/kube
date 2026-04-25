@@ -1,7 +1,7 @@
 //! Handler for list mode key events (Namespace, Pod, Service, etc.)
 
 use crossterm::event::{KeyCode, KeyEvent};
-use super::super::state::{AppState, AppMode, ConfirmAction};
+use super::super::state::{AppState};
 use anyhow::Result;
 
 /// Handle key events in list modes
