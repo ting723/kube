@@ -7,6 +7,10 @@ authors = ["Your Name <your.email@example.com>"]
 description = "A TUI tool for Kubernetes management inspired by lazydocker"
 license = "MIT"
 
+[lib]
+name = "kube_tui"
+path = "src/main.rs"
+
 [dependencies]
 ratatui = "0.30"
 crossterm = "0.29"
