@@ -8,7 +8,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Tabs},
 };
 
-use crate::app::{AppMode, AppState};
+use crate::app::state::{AppMode, AppState};
 
 pub fn render_ui(f: &mut Frame, app: &AppState) {
     let chunks = Layout::default()
@@ -97,6 +97,7 @@ fn render_header(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::SecretList => 10,
             _ => 1,
         },
+        AppMode::CommandHistory => 11,
     };
 
     let tabs = Tabs::new(titles)
@@ -132,6 +133,7 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::Help => components::help::render(f, area, app),
         AppMode::YamlView => components::yaml_view::render(f, area, app),
         AppMode::TopView => components::top_view::render(f, area, app),
+        AppMode::CommandHistory => {},
     }
 }
 
@@ -197,6 +199,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::Search => "输入搜索内容 • Enter 选择 • I 切换语言 • Esc 取消",
             AppMode::Confirm => "y/Y 确认 • n/N/Esc 取消",
             AppMode::Help => "I 切换语言 • Esc 返回 • q 退出",
+            AppMode::CommandHistory => "j/k 选择 • Enter 执行 • I 切换语言 • Esc 返回 • q 退出",
         }
     } else {
         // English prompts
@@ -259,6 +262,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::Search => "Type to search • Enter Select • I Language • Esc Cancel",
             AppMode::Confirm => "y/Y Confirm • n/N/Esc Cancel",
             AppMode::Help => "I Language • Esc Back • q Quit",
+            AppMode::CommandHistory => "j/k Select • Enter Execute • I Language • Esc Back • q Quit",
         }
     };
 
@@ -445,6 +449,7 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
             AppMode::PVList => "kubectl get pv".to_string(),
             AppMode::Confirm => "Confirmation Mode".to_string(),
             AppMode::Help => "Help Mode".to_string(),
+            AppMode::CommandHistory => "Command History".to_string(),
         }
     };
 

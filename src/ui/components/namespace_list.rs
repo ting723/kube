@@ -5,7 +5,7 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState},
 };
 
-use crate::app::AppState;
+use crate::app::state::AppState;
 
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let items: Vec<ListItem> = app

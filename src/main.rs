@@ -4,7 +4,7 @@ mod kubectl;
 mod ui;
 
 use anyhow::Result;
-use app::{AppMode, AppState};
+use app::{AppState, AppMode};
 use crossterm::{
     event::Event,
     event::{DisableMouseCapture, EnableMouseCapture},

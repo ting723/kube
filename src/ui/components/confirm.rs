@@ -1,11 +1,6 @@
-use ratatui::{
-    Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    widgets::{Block, Borders, Clear, Paragraph},
-};
+use ratatui::{Frame, layout::{Alignment, Constraint, Direction, Layout, Rect}, style::{Color, Style}, widgets::{Block, Borders, Clear, Paragraph}};
 
-use crate::app::{AppState, ConfirmAction};
+use crate::app::state::{AppState, ConfirmAction};
 
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     if let Some(ref action) = app.confirm_action {
@@ -31,6 +26,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             ConfirmAction::DeleteSecret { namespace, name } => (
                 "Confirm Delete Secret".to_string(),
                 format!("Delete secret '{}/{}' ?", namespace, name),
+            ),
+            ConfirmAction::DeleteBatch { items } => (
+                "Confirm Delete Batch".to_string(),
+                format!("Delete {} selected items?", items.len()),
             ),
         };
 

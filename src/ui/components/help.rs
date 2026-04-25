@@ -5,7 +5,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
-use crate::app::AppState;
+use crate::app::state::AppState;
 
 pub fn render(f: &mut Frame, _area: Rect, _app: &AppState) {
     let help_text = r#"

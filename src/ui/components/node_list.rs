@@ -5,7 +5,7 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Row, Table},
 };
 
-use crate::app::AppState;
+use crate::app::state::AppState;
 
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     if app.nodes.is_empty() {

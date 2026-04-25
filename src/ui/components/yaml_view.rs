@@ -9,7 +9,7 @@ use ratatui::{
     },
 };
 
-use crate::app::{AppMode, AppState};
+use crate::app::state::{AppMode, AppState};
 
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     let mode_suffix = if !app.get_mouse_mode_text().is_empty() {
