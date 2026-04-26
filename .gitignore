@@ -1,2 +1,27 @@
 /target
 .qoder/*
+
+# macOS system files
+.DS_Store
+
+# Claude Code local config and cache
+.claude/
+
+# Superpowers local session cache
+.superpowers/
+
+# Skills local config cache
+skills/
+
+# Spec workflow local config
+.spec-workflow/
+
+# Temporary/refactor files
+src/app_temp/
+src/errors.rs
+src/errors/
+src/resource_type.rs
+src/resource_type/
+
+# Release builds (optional - uncomment if you don't want to track builds)
+# release/
