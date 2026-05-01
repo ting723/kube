@@ -1,4 +1,5 @@
 //! User configuration management (favorite namespaces, command history)
+#![allow(dead_code)]
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

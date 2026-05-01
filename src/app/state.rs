@@ -1,10 +1,11 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use crossterm::event::MouseEvent;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ConfirmAction {
     DeletePod { namespace: String, name: String },
     DeleteService { namespace: String, name: String },
@@ -14,6 +15,7 @@ pub enum ConfirmAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[allow(dead_code)]
 pub enum AppMode {
     NamespaceList,
     PodList,
@@ -100,18 +102,23 @@ pub struct AppState {
     pub metrics_scroll: usize,
 
     // New fields for added features
+    #[allow(dead_code)]
     pub favorite_namespaces: Vec<String>,
+    #[allow(dead_code)]
     pub last_selected_positions: HashMap<AppMode, usize>,
+    #[allow(dead_code)]
     pub batch_mode: bool,
-    pub batch_items: Vec<String>, // Items for batch operations
-    pub selected_batch_index: usize, // Current selection in batch mode
-    pub selected_batch_items: HashSet<usize>,
-    pub active_portforwards: Vec<()>, // Temporary workaround: use empty tuples instead of Child which isn't Clone
+    #[allow(dead_code)]
     pub log_search_query: String,
+    #[allow(dead_code)]
     pub log_search_results: Vec<usize>,
+    #[allow(dead_code)]
     pub current_log_search_index: usize,
+    #[allow(dead_code)]
     pub log_search_mode: bool,
+    #[allow(dead_code)]
     pub streaming_logs: bool,
+    #[allow(dead_code)]
     pub command_history: Vec<String>,
 }
 
@@ -182,10 +189,6 @@ impl Default for AppState {
             favorite_namespaces: Vec::new(),
             last_selected_positions: HashMap::new(),
             batch_mode: false,
-            batch_items: Vec::new(),
-            selected_batch_index: 0,
-            selected_batch_items: HashSet::new(),
-            active_portforwards: Vec::new(),
             log_search_query: String::new(),
             log_search_results: Vec::new(),
             current_log_search_index: 0,
@@ -542,6 +545,7 @@ impl AppState {
     }
 
     /// Save current selected position for this mode before leaving
+    #[allow(dead_code)]
     pub fn save_selected_position(&mut self) {
         let pos = match self.mode {
             AppMode::NamespaceList => self.selected_namespace_index,
@@ -561,6 +565,7 @@ impl AppState {
     }
 
     /// Restore saved selected position when entering this mode
+    #[allow(dead_code)]
     pub fn restore_selected_position(&mut self) {
         if let Some(&pos) = self.last_selected_positions.get(&self.mode) {
             match self.mode {
@@ -581,6 +586,7 @@ impl AppState {
     }
 
     /// Toggle favorite for current namespace
+    #[allow(dead_code)]
     pub fn toggle_favorite_namespace(&mut self) {
         if let Some(ns) = self.namespaces.get(self.selected_namespace_index) {
             if self.favorite_namespaces.contains(ns) {
@@ -592,6 +598,7 @@ impl AppState {
     }
 
     /// Check if current namespace is favorited
+    #[allow(dead_code)]
     pub fn is_current_namespace_favorite(&self) -> bool {
         if let Some(ns) = self.namespaces.get(self.selected_namespace_index) {
             self.favorite_namespaces.contains(ns)

@@ -317,7 +317,7 @@ async fn run_app(
                                             if let Ok(description) =
                                                 client.describe_pod(&namespace, &pod_name).await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -334,7 +334,7 @@ async fn run_app(
                                                 .describe_service(&namespace, &service_name)
                                                 .await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -351,7 +351,7 @@ async fn run_app(
                                                 .describe_deployment(&namespace, &deployment_name)
                                                 .await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -367,7 +367,7 @@ async fn run_app(
                                             if let Ok(description) =
                                                 client.describe_job(&namespace, &job_name).await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -384,7 +384,7 @@ async fn run_app(
                                                 .describe_daemonset(&namespace, &daemonset_name)
                                                 .await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -399,7 +399,7 @@ async fn run_app(
                                             if let Ok(description) =
                                                 client.describe_node(&node_name).await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -416,7 +416,7 @@ async fn run_app(
                                                 .describe_configmap(&namespace, &configmap_name)
                                                 .await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -433,7 +433,7 @@ async fn run_app(
                                                 .describe_secret(&namespace, &secret_name)
                                                 .await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -449,7 +449,7 @@ async fn run_app(
                                             if let Ok(description) =
                                                 client.describe_pvc(&namespace, &pvc_name).await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -464,7 +464,7 @@ async fn run_app(
                                             if let Ok(description) =
                                                 client.describe_pv(&pv_name).await
                                             {
-                                                app.describe_content = description;
+                                                app.set_describe_content(description);
                                             }
                                             app.clear_current_command();
                                         }
@@ -488,7 +488,7 @@ async fn run_app(
                                                 .get_yaml("pod", Some(&namespace), &pod_name)
                                                 .await
                                             {
-                                                app.yaml_content = yaml;
+                                                app.set_yaml_content(yaml);
                                             }
                                             app.clear_current_command();
                                         }
@@ -509,7 +509,7 @@ async fn run_app(
                                                 )
                                                 .await
                                             {
-                                                app.yaml_content = yaml;
+                                                app.set_yaml_content(yaml);
                                             }
                                             app.clear_current_command();
                                         }
@@ -524,7 +524,7 @@ async fn run_app(
                                             if let Ok(yaml) =
                                                 client.get_yaml("node", None, &node_name).await
                                             {
-                                                app.yaml_content = yaml;
+                                                app.set_yaml_content(yaml);
                                             }
                                             app.clear_current_command();
                                         }
@@ -712,7 +712,7 @@ async fn run_app(
                             namespace, pod_name
                         ));
                         if let Ok(description) = client.describe_pod(&namespace, &pod_name).await {
-                            app.describe_content = description;
+                            app.set_describe_content(description);
                         }
                         app.clear_current_command();
                     }
@@ -728,7 +728,7 @@ async fn run_app(
                         if let Ok(description) =
                             client.describe_service(&namespace, &service_name).await
                         {
-                            app.describe_content = description;
+                            app.set_describe_content(description);
                         }
                         app.clear_current_command();
                     }
@@ -745,7 +745,7 @@ async fn run_app(
                             .describe_deployment(&namespace, &deployment_name)
                             .await
                         {
-                            app.describe_content = description;
+                            app.set_describe_content(description);
                         }
                         app.clear_current_command();
                     }
@@ -758,7 +758,7 @@ async fn run_app(
                             node_name
                         ));
                         if let Ok(description) = client.describe_node(&node_name).await {
-                            app.describe_content = description;
+                            app.set_describe_content(description);
                         }
                         app.clear_current_command();
                     }
@@ -781,7 +781,7 @@ async fn run_app(
                         ));
                         if let Ok(yaml) = client.get_yaml("pod", Some(&namespace), &pod_name).await
                         {
-                            app.yaml_content = yaml;
+                            app.set_yaml_content(yaml);
                         }
                         app.clear_current_command();
                     }
@@ -798,7 +798,7 @@ async fn run_app(
                             .get_yaml("service", Some(&namespace), &service_name)
                             .await
                         {
-                            app.yaml_content = yaml;
+                            app.set_yaml_content(yaml);
                         }
                         app.clear_current_command();
                     }
@@ -811,7 +811,7 @@ async fn run_app(
                             node_name
                         ));
                         if let Ok(yaml) = client.get_yaml("node", None, &node_name).await {
-                            app.yaml_content = yaml;
+                            app.set_yaml_content(yaml);
                         }
                         app.clear_current_command();
                     }

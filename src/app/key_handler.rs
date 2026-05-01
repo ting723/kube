@@ -525,11 +525,10 @@ impl AppState {
 
     pub fn handle_left_navigation(&mut self) {
         match self.mode {
-            AppMode::Logs | AppMode::Describe => {
-                // 在滚动模式下，h 键用于水平滚动（如果需要）
+            AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                // h 键在详情视图中保留，暂无操作（预留水平滚动功能）
             }
             _ => {
-                // 切换到上一个面板
                 self.switch_panel_left();
             }
         }
@@ -537,11 +536,10 @@ impl AppState {
 
     pub fn handle_right_navigation(&mut self) {
         match self.mode {
-            AppMode::Logs | AppMode::Describe => {
-                // 在滚动模式下，l 键用于水平滚动（如果需要）
+            AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                // l 键在详情视图中保留，暂无操作（预留水平滚动功能）
             }
             _ => {
-                // 切换到下一个面板
                 self.switch_panel_right();
             }
         }
