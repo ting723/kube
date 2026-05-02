@@ -1,6 +1,6 @@
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent};
-use super::state::{AppState, ConfirmAction, AppMode};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use super::state::{AppState, ActivePane, ConfirmAction, AppMode};
 
 impl AppState {
     pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
@@ -17,30 +17,35 @@ impl AppState {
         match key_event.code {
             KeyCode::Char('q') => self.should_quit = true,
             KeyCode::Char('?') | KeyCode::F(1) => self.mode = AppMode::Help,
-            KeyCode::Esc => match self.mode {
-                AppMode::Help
-                | AppMode::Logs
-                | AppMode::Describe
-                | AppMode::YamlView
-                | AppMode::TopView => {
-                    self.reset_scroll();
-                    self.mode = self.get_previous_mode();
+            KeyCode::Esc => {
+                if self.batch_mode {
+                    self.toggle_batch_mode();
+                    return Ok(());
                 }
-                AppMode::PodList
-                | AppMode::ServiceList
-                | AppMode::NodeList
-                | AppMode::DeploymentList
-                | AppMode::JobList
-                | AppMode::DaemonSetList
-                | AppMode::PVCList
-                | AppMode::PVList
-                | AppMode::ConfigMapList
-                | AppMode::SecretList => {
-                    self.mode = AppMode::NamespaceList;
+                if self.split_log_mode {
+                    self.split_log_mode = false;
                 }
-                _ => {}
-            },
+                match self.mode {
+                    AppMode::Help | AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                        self.reset_scroll();
+                        self.mode = self.get_previous_mode();
+                    }
+                    AppMode::PodList | AppMode::ServiceList | AppMode::NodeList | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList | AppMode::ConfigMapList | AppMode::SecretList => {
+                        self.mode = AppMode::NamespaceList;
+                    }
+                    _ => {}
+                }
+            }
             // 滚动操作（仅在 Logs、Describe、YamlView 和 TopView 模式下）
+            KeyCode::Char('V') => {
+                if self.mode == AppMode::Logs {
+                    if self.split_log_mode {
+                        self.split_log_mode = false;
+                    } else {
+                        self.enter_split_log_mode();
+                    }
+                }
+            }
             KeyCode::Char('j') => {
                 match self.mode {
                     AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
@@ -65,7 +70,28 @@ impl AppState {
             KeyCode::PageUp => self.scroll_page_up(),
             // 资源操作
             KeyCode::Enter => self.handle_enter(),
-            KeyCode::Char(' ') => self.handle_describe(), // Space 键查看详情
+            KeyCode::Char(' ') => {
+                if self.batch_mode {
+                    self.toggle_mark_current();
+                } else {
+                    self.handle_describe();
+                }
+            } // Space 键查看详情 / 批量标记
+            KeyCode::Char('a') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+                if self.batch_mode {
+                    self.mark_all();
+                }
+            }
+            KeyCode::Char('d') => {
+                if self.batch_mode && !self.marked_items.is_empty() {
+                    let items: Vec<(String, String, String)> = self.marked_items.iter()
+                        .filter_map(|&i| self.pods.get(i))
+                        .map(|p| (self.current_namespace.clone(), "pod".to_string(), p.name.clone()))
+                        .collect();
+                    self.confirm_action = Some(ConfirmAction::DeleteBatch { items });
+                    self.mode = AppMode::Confirm;
+                }
+            }
             KeyCode::Char('L') => self.handle_logs(),     // L 查看日志
             KeyCode::Char('D') => self.handle_delete(),   // D 删除（需确认）
             KeyCode::Char('E') => self.handle_exec(),     // E 进入容器
@@ -109,8 +135,29 @@ impl AppState {
                 }
             }
             // Tab 切换面板
-            KeyCode::Tab => self.switch_panel(),
+            KeyCode::Tab => {
+                if self.mode == AppMode::Logs && self.split_log_mode {
+                    self.active_pane = match self.active_pane {
+                        ActivePane::Left => ActivePane::Right,
+                        ActivePane::Right => ActivePane::Left,
+                    };
+                } else {
+                    self.switch_panel();
+                }
+            }
             KeyCode::BackTab => self.switch_panel_left(), // Shift+Tab 向后切换
+            // v 键切换批量模式
+            KeyCode::Char('v') => {
+                match self.mode {
+                    AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList
+                    | AppMode::NodeList | AppMode::DeploymentList | AppMode::JobList
+                    | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
+                    | AppMode::ConfigMapList | AppMode::SecretList => {
+                        self.toggle_batch_mode();
+                    }
+                    _ => {}
+                }
+            }
             // M键在YAML/Describe模式下切换鼠标模式
             KeyCode::Char('M') | KeyCode::Char('m') => match self.mode {
                 AppMode::Describe | AppMode::YamlView | AppMode::Logs => {
@@ -693,6 +740,20 @@ impl AppState {
         }
     }
 
+    pub fn enter_split_log_mode(&mut self) {
+        self.split_log_mode = true;
+        self.split_log_scroll = 0;
+        self.active_pane = ActivePane::Right;
+        let next_idx = if self.selected_pod_index + 1 < self.pods.len() {
+            self.selected_pod_index + 1
+        } else {
+            self.selected_pod_index.saturating_sub(1)
+        };
+        if let Some(pod) = self.pods.get(next_idx) {
+            self.split_log_pod_name = pod.name.clone();
+        }
+    }
+
     }
 
 #[cfg(test)]
@@ -804,5 +865,36 @@ mod tests {
         let original = state.text_selection_mode;
         state.toggle_mouse_mode();
         assert_eq!(state.text_selection_mode, !original);
+    }
+
+    #[test]
+    fn test_batch_mode_key() {
+        let mut state = create_test_state();
+        state.mode = AppMode::PodList;
+        let key = KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE);
+        state.handle_key_event(key).unwrap();
+        assert!(state.batch_mode);
+        state.handle_key_event(key).unwrap();
+        assert!(!state.batch_mode);
+    }
+
+    #[test]
+    fn test_split_log_v_key() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        state.pods.push(crate::kubectl::types::Pod {
+            name: "pod1".into(), namespace: "default".into(),
+            status: crate::kubectl::types::PodStatus { phase: "Running".into(), conditions: None, container_statuses: None },
+            ready: "1/1".into(), restarts: 0, age: "1d".into(), node: None, ip: None,
+        });
+        state.pods.push(crate::kubectl::types::Pod {
+            name: "pod2".into(), namespace: "default".into(),
+            status: crate::kubectl::types::PodStatus { phase: "Running".into(), conditions: None, container_statuses: None },
+            ready: "1/1".into(), restarts: 0, age: "1d".into(), node: None, ip: None,
+        });
+        let v_key = KeyEvent::new(KeyCode::Char('V'), KeyModifiers::NONE);
+        state.handle_key_event(v_key).unwrap();
+        assert!(state.split_log_mode);
+        assert_eq!(state.split_log_pod_name, "pod2");
     }
 }
