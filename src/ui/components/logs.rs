@@ -3,7 +3,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
+    widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
 };
 
 fn log_pane_title(app: &AppState, pod_name: &str, pane: &ActivePane) -> String {
@@ -61,8 +61,68 @@ fn render_log_pane(f: &mut Frame, area: Rect, logs: &[String], scroll: usize, ti
     }
 }
 
+fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+    let popup_width = area.width * percent_x / 100;
+    let popup_height = area.height * percent_y / 100;
+    let x = area.x + (area.width.saturating_sub(popup_width)) / 2;
+    let y = area.y + (area.height.saturating_sub(popup_height)) / 2;
+    Rect::new(x, y, popup_width, popup_height)
+}
+
+fn render_pod_picker(f: &mut Frame, area: Rect, app: &AppState) {
+    let picker_area = popup_area(area, 60, 70);
+    f.render_widget(Clear, picker_area);
+
+    let pod_names: Vec<String> = app
+        .pods
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let marker = if i == app.split_pod_selection_index {
+                "▶ "
+            } else {
+                "  "
+            };
+            format!("{}{}", marker, p.name)
+        })
+        .collect();
+
+    let title = if app.language_chinese {
+        "选择要对比的 Pod (j/k:导航 Enter:确认 Esc:取消)"
+    } else {
+        "Select Pod to Compare (j/k:nav Enter:select Esc:cancel)"
+    };
+
+    let paragraph = Paragraph::new(pod_names.join("\n"))
+        .block(Block::default().borders(Borders::ALL).title(title).style(
+            Style::default().fg(Color::Yellow),
+        ))
+        .style(Style::default().fg(Color::White))
+        .scroll((
+            app.split_pod_selection_index.saturating_sub(picker_area.height.saturating_sub(3) as usize / 2) as u16,
+            0,
+        ));
+
+    f.render_widget(paragraph, picker_area);
+}
+
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
-    if app.split_log_mode {
+    if app.split_pod_selection_mode {
+        // 先渲染当前日志作为背景
+        let name = app
+            .pods
+            .get(app.selected_pod_index)
+            .map(|p| p.name.as_str())
+            .unwrap_or("?");
+        let title = if app.language_chinese {
+            format!("日志 - {}/{}", app.current_namespace, name)
+        } else {
+            format!("Logs - {}/{}", app.current_namespace, name)
+        };
+        render_log_pane(f, area, &app.logs, app.logs_scroll, &title);
+        // 叠加 Pod 选择弹窗
+        render_pod_picker(f, area, app);
+    } else if app.split_log_mode {
         let panes = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])

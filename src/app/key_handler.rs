@@ -14,6 +14,11 @@ impl AppState {
             return self.handle_confirm_key_event(key_event);
         }
 
+        // 处理分屏日志 Pod 选择模式
+        if self.split_pod_selection_mode {
+            return self.handle_split_pod_selection_key_event(key_event);
+        }
+
         match key_event.code {
             KeyCode::Char('q') => self.should_quit = true,
             KeyCode::Char('?') | KeyCode::F(1) => self.mode = AppMode::Help,
@@ -769,20 +774,46 @@ impl AppState {
     }
 
     pub fn enter_split_log_mode(&mut self) {
-        if self.pods.is_empty() {
+        if self.pods.len() < 2 {
             return;
         }
-        self.split_log_mode = true;
-        self.split_log_scroll = 0;
-        self.active_pane = ActivePane::Right;
-        let next_idx = if self.selected_pod_index + 1 < self.pods.len() {
-            self.selected_pod_index + 1
-        } else {
-            self.selected_pod_index.saturating_sub(1)
-        };
-        if let Some(pod) = self.pods.get(next_idx) {
-            self.split_log_pod_name = pod.name.clone();
+        // 进入 Pod 选择模式，让用户手动选择要对比的 Pod
+        self.split_pod_selection_mode = true;
+        self.split_pod_selection_index = 0;
+    }
+
+    fn handle_split_pod_selection_key_event(
+        &mut self,
+        key_event: KeyEvent,
+    ) -> Result<()> {
+        match key_event.code {
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.split_pod_selection_index + 1 < self.pods.len() {
+                    self.split_pod_selection_index += 1;
+                }
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.split_pod_selection_index > 0 {
+                    self.split_pod_selection_index -= 1;
+                }
+            }
+            KeyCode::Enter => {
+                // 确认选择：激活分屏并加载选中 Pod 的日志
+                if let Some(pod) = self.pods.get(self.split_pod_selection_index) {
+                    self.split_log_pod_name = pod.name.clone();
+                }
+                self.split_log_mode = true;
+                self.split_log_scroll = 0;
+                self.active_pane = ActivePane::Right;
+                self.split_pod_selection_mode = false;
+            }
+            KeyCode::Esc => {
+                // 取消选择
+                self.split_pod_selection_mode = false;
+            }
+            _ => {}
         }
+        Ok(())
     }
 }
 
@@ -950,7 +981,18 @@ mod tests {
         });
         let v_key = KeyEvent::new(KeyCode::Char('V'), KeyModifiers::NONE);
         state.handle_key_event(v_key).unwrap();
+        // V 键进入 Pod 选择模式，而非直接激活分屏
+        assert!(state.split_pod_selection_mode);
+        assert!(!state.split_log_mode);
+        // 导航到第二个 pod 并确认选择
+        let down = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        state.handle_key_event(down).unwrap();
+        state.handle_key_event(down).unwrap();
+        assert_eq!(state.split_pod_selection_index, 1);
+        let enter = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
+        state.handle_key_event(enter).unwrap();
         assert!(state.split_log_mode);
+        assert!(!state.split_pod_selection_mode);
         assert_eq!(state.split_log_pod_name, "pod2");
     }
 }

@@ -130,6 +130,8 @@ pub struct AppState {
     #[allow(dead_code)]
     pub batch_mode: bool,
     pub split_log_mode: bool,
+    pub split_pod_selection_mode: bool,
+    pub split_pod_selection_index: usize,
     #[allow(dead_code)]
     pub split_log_pod_name: String,
     pub split_log_content: Vec<String>,
@@ -221,6 +223,8 @@ impl Default for AppState {
             last_selected_positions: HashMap::new(),
             batch_mode: false,
             split_log_mode: false,
+            split_pod_selection_mode: false,
+            split_pod_selection_index: 0,
             split_log_pod_name: String::new(),
             split_log_content: Vec::new(),
             split_log_scroll: 0,
