@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -37,6 +37,10 @@ pub enum AppMode {
     TopView,
     CommandHistory,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
+pub enum ActivePane { Left, Right }
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -108,6 +112,16 @@ pub struct AppState {
     pub last_selected_positions: HashMap<AppMode, usize>,
     #[allow(dead_code)]
     pub batch_mode: bool,
+    pub split_log_mode: bool,
+    #[allow(dead_code)]
+    pub split_log_pod_name: String,
+    pub split_log_content: Vec<String>,
+    pub split_log_scroll: usize,
+    pub active_pane: ActivePane,
+    #[allow(dead_code)]
+    pub marked_items: HashSet<usize>,
+    #[allow(dead_code)]
+    pub exec_returning: bool,
     #[allow(dead_code)]
     pub log_search_query: String,
     #[allow(dead_code)]
@@ -189,6 +203,13 @@ impl Default for AppState {
             favorite_namespaces: Vec::new(),
             last_selected_positions: HashMap::new(),
             batch_mode: false,
+            split_log_mode: false,
+            split_log_pod_name: String::new(),
+            split_log_content: Vec::new(),
+            split_log_scroll: 0,
+            active_pane: ActivePane::Left,
+            marked_items: HashSet::new(),
+            exec_returning: false,
             log_search_query: String::new(),
             log_search_results: Vec::new(),
             current_log_search_index: 0,
@@ -406,8 +427,13 @@ impl AppState {
     pub fn scroll_up(&mut self) {
         match self.mode {
             AppMode::Logs => {
-                if self.logs_scroll > 0 {
-                    self.logs_scroll -= 1;
+                if self.split_log_mode {
+                    match self.active_pane {
+                        ActivePane::Left => { if self.logs_scroll > 0 { self.logs_scroll -= 1; } }
+                        ActivePane::Right => { if self.split_log_scroll > 0 { self.split_log_scroll -= 1; } }
+                    }
+                } else {
+                    if self.logs_scroll > 0 { self.logs_scroll -= 1; }
                 }
             }
             AppMode::Describe => {
@@ -432,8 +458,13 @@ impl AppState {
     pub fn scroll_down(&mut self) {
         match self.mode {
             AppMode::Logs => {
-                if self.logs_scroll + 1 < self.logs.len() {
-                    self.logs_scroll += 1;
+                if self.split_log_mode {
+                    match self.active_pane {
+                        ActivePane::Left => { if self.logs_scroll + 1 < self.logs.len() { self.logs_scroll += 1; } }
+                        ActivePane::Right => { if self.split_log_scroll + 1 < self.split_log_content.len() { self.split_log_scroll += 1; } }
+                    }
+                } else {
+                    if self.logs_scroll + 1 < self.logs.len() { self.logs_scroll += 1; }
                 }
             }
             AppMode::Describe => {
@@ -458,7 +489,14 @@ impl AppState {
     pub fn scroll_page_up(&mut self) {
         match self.mode {
             AppMode::Logs => {
-                self.logs_scroll = self.logs_scroll.saturating_sub(10);
+                if self.split_log_mode {
+                    match self.active_pane {
+                        ActivePane::Left => self.logs_scroll = self.logs_scroll.saturating_sub(10),
+                        ActivePane::Right => self.split_log_scroll = self.split_log_scroll.saturating_sub(10),
+                    }
+                } else {
+                    self.logs_scroll = self.logs_scroll.saturating_sub(10);
+                }
             }
             AppMode::Describe => {
                 self.describe_scroll = self.describe_scroll.saturating_sub(10);
@@ -476,8 +514,21 @@ impl AppState {
     pub fn scroll_page_down(&mut self) {
         match self.mode {
             AppMode::Logs => {
-                let max_scroll = self.logs.len().saturating_sub(1);
-                self.logs_scroll = (self.logs_scroll + 10).min(max_scroll);
+                if self.split_log_mode {
+                    match self.active_pane {
+                        ActivePane::Left => {
+                            let max = self.logs.len().saturating_sub(1);
+                            self.logs_scroll = (self.logs_scroll + 10).min(max);
+                        }
+                        ActivePane::Right => {
+                            let max = self.split_log_content.len().saturating_sub(1);
+                            self.split_log_scroll = (self.split_log_scroll + 10).min(max);
+                        }
+                    }
+                } else {
+                    let max_scroll = self.logs.len().saturating_sub(1);
+                    self.logs_scroll = (self.logs_scroll + 10).min(max_scroll);
+                }
             }
             AppMode::Describe => {
                 let max_scroll = self.describe_lines_cache.len().saturating_sub(1);
@@ -497,6 +548,7 @@ impl AppState {
 
     pub fn reset_scroll(&mut self) {
         self.logs_scroll = 0;
+        self.split_log_scroll = 0;
         self.describe_scroll = 0;
         self.yaml_scroll = 0;
         self.metrics_scroll = 0;
@@ -606,6 +658,70 @@ impl AppState {
             false
         }
     }
+
+    #[allow(dead_code)]
+    pub fn toggle_batch_mode(&mut self) {
+        self.batch_mode = !self.batch_mode;
+        if !self.batch_mode {
+            self.marked_items.clear();
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn toggle_mark_current(&mut self) {
+        if !self.batch_mode { return; }
+        let idx = self.current_selection_index();
+        if self.marked_items.contains(&idx) {
+            self.marked_items.remove(&idx);
+        } else {
+            self.marked_items.insert(idx);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn mark_all(&mut self) {
+        if !self.batch_mode { return; }
+        let count = self.current_list_len();
+        for i in 0..count {
+            self.marked_items.insert(i);
+        }
+    }
+
+    #[allow(dead_code)]
+    fn current_selection_index(&self) -> usize {
+        match self.mode {
+            AppMode::NamespaceList => self.selected_namespace_index,
+            AppMode::PodList => self.selected_pod_index,
+            AppMode::ServiceList => self.selected_service_index,
+            AppMode::NodeList => self.selected_node_index,
+            AppMode::DeploymentList => self.selected_deployment_index,
+            AppMode::JobList => self.selected_job_index,
+            AppMode::DaemonSetList => self.selected_daemonset_index,
+            AppMode::PVCList => self.selected_pvc_index,
+            AppMode::PVList => self.selected_pv_index,
+            AppMode::ConfigMapList => self.selected_configmap_index,
+            AppMode::SecretList => self.selected_secret_index,
+            _ => 0,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn current_list_len(&self) -> usize {
+        match self.mode {
+            AppMode::NamespaceList => self.namespaces.len(),
+            AppMode::PodList => self.pods.len(),
+            AppMode::ServiceList => self.services.len(),
+            AppMode::NodeList => self.nodes.len(),
+            AppMode::DeploymentList => self.deployments.len(),
+            AppMode::JobList => self.jobs.len(),
+            AppMode::DaemonSetList => self.daemonsets.len(),
+            AppMode::PVCList => self.pvcs.len(),
+            AppMode::PVList => self.pvs.len(),
+            AppMode::ConfigMapList => self.configmaps.len(),
+            AppMode::SecretList => self.secrets.len(),
+            _ => 0,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -676,6 +792,66 @@ mod tests {
         assert!(state.is_current_namespace_favorite());
         state.toggle_favorite_namespace();
         assert!(!state.is_current_namespace_favorite());
+    }
+
+    #[test]
+    fn test_batch_mode_toggle() {
+        let mut state = AppState::default();
+        state.mode = AppMode::PodList;
+        state.pods.push(crate::kubectl::types::Pod {
+            name: "test-pod".into(), namespace: "default".into(),
+            status: crate::kubectl::types::PodStatus { phase: "Running".into(), conditions: None, container_statuses: None },
+            ready: "1/1".into(), restarts: 0, age: "1d".into(), node: None, ip: None,
+        });
+        state.toggle_batch_mode();
+        assert!(state.batch_mode);
+        state.toggle_mark_current();
+        assert_eq!(state.marked_items.len(), 1);
+        state.toggle_batch_mode();
+        assert!(!state.batch_mode);
+        assert!(state.marked_items.is_empty());
+    }
+
+    #[test]
+    fn test_mark_all() {
+        let mut state = AppState::default();
+        state.mode = AppMode::PodList;
+        for i in 0..3 {
+            state.pods.push(crate::kubectl::types::Pod {
+                name: format!("pod-{}", i), namespace: "default".into(),
+                status: crate::kubectl::types::PodStatus { phase: "Running".into(), conditions: None, container_statuses: None },
+                ready: "1/1".into(), restarts: 0, age: "1d".into(), node: None, ip: None,
+            });
+        }
+        state.toggle_batch_mode();
+        state.mark_all();
+        assert_eq!(state.marked_items.len(), 3);
+    }
+
+    #[test]
+    fn test_split_log_mode_defaults() {
+        let state = AppState::default();
+        assert!(!state.split_log_mode);
+        assert_eq!(state.split_log_scroll, 0);
+    }
+
+    #[test]
+    fn test_active_pane_scroll() {
+        let mut state = AppState::default();
+        state.mode = AppMode::Logs;
+        state.split_log_mode = true;
+        state.split_log_content = vec!["a".into(), "b".into(), "c".into()];
+        state.active_pane = ActivePane::Right;
+        state.scroll_down();
+        assert_eq!(state.split_log_scroll, 1);
+        state.scroll_up();
+        assert_eq!(state.split_log_scroll, 0);
+        state.active_pane = ActivePane::Left;
+        state.logs = vec!["x".into(), "y".into()];
+        state.logs_scroll = 0;
+        state.scroll_down();
+        assert_eq!(state.logs_scroll, 1);
+        assert_eq!(state.split_log_scroll, 0);
     }
 }
 
