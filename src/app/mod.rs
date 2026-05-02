@@ -1,6 +1,6 @@
 pub mod config;
-pub mod state;
 pub mod key_handler;
+pub mod state;
 
 // Re-export commonly used types
-pub use state::{AppState, AppMode};
+pub use state::{AppMode, AppState};

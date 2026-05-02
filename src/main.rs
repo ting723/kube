@@ -4,7 +4,7 @@ mod kubectl;
 mod ui;
 
 use anyhow::Result;
-use app::{AppState, AppMode};
+use app::{AppMode, AppState};
 use crossterm::{
     event::Event,
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -287,7 +287,9 @@ async fn run_app(
                                     if app.split_log_mode && !app.split_log_pod_name.is_empty() {
                                         let split_ns = app.current_namespace.clone();
                                         let split_name = app.split_log_pod_name.clone();
-                                        if let Ok(split_logs) = client.get_pod_logs(&split_ns, &split_name, 100).await {
+                                        if let Ok(split_logs) =
+                                            client.get_pod_logs(&split_ns, &split_name, 100).await
+                                        {
                                             app.split_log_content = split_logs;
                                         }
                                     }
@@ -667,7 +669,9 @@ async fn run_app(
                         if app.split_log_mode && !app.split_log_pod_name.is_empty() {
                             let split_ns = app.current_namespace.clone();
                             let split_name = app.split_log_pod_name.clone();
-                            if let Ok(split_logs) = client.get_pod_logs(&split_ns, &split_name, 100).await {
+                            if let Ok(split_logs) =
+                                client.get_pod_logs(&split_ns, &split_name, 100).await
+                            {
                                 app.split_log_content = split_logs;
                             }
                         }

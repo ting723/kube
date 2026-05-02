@@ -133,7 +133,7 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::Help => components::help::render(f, area, app),
         AppMode::YamlView => components::yaml_view::render(f, area, app),
         AppMode::TopView => components::top_view::render(f, area, app),
-        AppMode::CommandHistory => {},
+        AppMode::CommandHistory => {}
     }
 }
 
@@ -143,77 +143,110 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
         match app.mode {
             AppMode::NamespaceList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k ↑↓ 导航 • Enter 选择 • h/l ←→ 切换 • Tab/Shift+Tab 标签页 • / 搜索 • I 切换语言 • q 退出 • ? 帮助".to_string()
                 }
             }
             AppMode::PodList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • T 监控 • L 日志 • D 删除 • E 进入 • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::ServiceList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::NodeList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::DeploymentList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::JobList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::DaemonSetList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::PVCList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::PVList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::ConfigMapList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::SecretList => {
                 if app.batch_mode {
-                    format!("v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}", app.marked_items.len())
+                    format!(
+                        "v 退出批量 | Space 标记 | Ctrl+A 全选 | d 删除 | Esc 取消 | 已标记: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
@@ -239,88 +272,125 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                     "j/k 滚动 • R 切换自动刷新 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出".to_string()
                 }
             }
-            AppMode::TopView => "j/k 滚动 • PgUp/PgDn 翻页 • I 切换语言 • Esc 返回 • q 退出".to_string(),
+            AppMode::TopView => {
+                "j/k 滚动 • PgUp/PgDn 翻页 • I 切换语言 • Esc 返回 • q 退出".to_string()
+            }
             AppMode::Search => "输入搜索内容 • Enter 选择 • I 切换语言 • Esc 取消".to_string(),
             AppMode::Confirm => "y/Y 确认 • n/N/Esc 取消".to_string(),
             AppMode::Help => "I 切换语言 • Esc 返回 • q 退出".to_string(),
-            AppMode::CommandHistory => "j/k 选择 • Enter 执行 • I 切换语言 • Esc 返回 • q 退出".to_string(),
+            AppMode::CommandHistory => {
+                "j/k 选择 • Enter 执行 • I 切换语言 • Esc 返回 • q 退出".to_string()
+            }
         }
     } else {
         // English prompts
         match app.mode {
             AppMode::NamespaceList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k ↑↓ Navigate • Enter Select • h/l ←→ Switch • Tab/Shift+Tab Tabs • / Search • I Language • q Quit • ? Help".to_string()
                 }
             }
             AppMode::PodList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • T Top • L Logs • D Delete • E Exec • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::ServiceList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::NodeList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::DeploymentList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::JobList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::DaemonSetList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::PVCList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::PVList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::ConfigMapList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::SecretList => {
                 if app.batch_mode {
-                    format!("v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}", app.marked_items.len())
+                    format!(
+                        "v Exit Batch | Space Mark | Ctrl+A All | d Delete | Esc Cancel | Marked: {}",
+                        app.marked_items.len()
+                    )
                 } else {
                     "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
                 }
@@ -346,11 +416,17 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                     "j/k Scroll • R Toggle Auto-refresh • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit".to_string()
                 }
             }
-            AppMode::TopView => "j/k Scroll • PgUp/PgDn Page • I Language • Esc Back • q Quit".to_string(),
-            AppMode::Search => "Type to search • Enter Select • I Language • Esc Cancel".to_string(),
+            AppMode::TopView => {
+                "j/k Scroll • PgUp/PgDn Page • I Language • Esc Back • q Quit".to_string()
+            }
+            AppMode::Search => {
+                "Type to search • Enter Select • I Language • Esc Cancel".to_string()
+            }
             AppMode::Confirm => "y/Y Confirm • n/N/Esc Cancel".to_string(),
             AppMode::Help => "I Language • Esc Back • q Quit".to_string(),
-            AppMode::CommandHistory => "j/k Select • Enter Execute • I Language • Esc Back • q Quit".to_string(),
+            AppMode::CommandHistory => {
+                "j/k Select • Enter Execute • I Language • Esc Back • q Quit".to_string()
+            }
         }
     };
 

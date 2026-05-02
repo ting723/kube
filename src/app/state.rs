@@ -7,11 +7,25 @@ use crossterm::event::MouseEvent;
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum ConfirmAction {
-    DeletePod { namespace: String, name: String },
-    DeleteService { namespace: String, name: String },
-    DeleteConfigMap { namespace: String, name: String },
-    DeleteSecret { namespace: String, name: String },
-    DeleteBatch { items: Vec<(String, String, String)> }, // namespace, type, name
+    DeletePod {
+        namespace: String,
+        name: String,
+    },
+    DeleteService {
+        namespace: String,
+        name: String,
+    },
+    DeleteConfigMap {
+        namespace: String,
+        name: String,
+    },
+    DeleteSecret {
+        namespace: String,
+        name: String,
+    },
+    DeleteBatch {
+        items: Vec<(String, String, String)>,
+    }, // namespace, type, name
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -40,7 +54,10 @@ pub enum AppMode {
 
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
-pub enum ActivePane { Left, Right }
+pub enum ActivePane {
+    Left,
+    Right,
+}
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -229,21 +246,29 @@ impl AppState {
 
     // Keep the same methods as original app.rs to maintain compatibility
     pub fn should_refresh(&self) -> bool {
-        self.global_refresh_enabled && self.auto_refresh && self.last_update.elapsed() >= self.refresh_interval
+        self.global_refresh_enabled
+            && self.auto_refresh
+            && self.last_update.elapsed() >= self.refresh_interval
     }
 
     pub fn should_refresh_logs(&self) -> bool {
-        self.global_refresh_enabled && self.logs_auto_refresh && self.mode == AppMode::Logs
+        self.global_refresh_enabled
+            && self.logs_auto_refresh
+            && self.mode == AppMode::Logs
             && self.last_logs_refresh.elapsed() >= self.logs_refresh_interval
     }
 
     pub fn should_refresh_describe(&self) -> bool {
-        self.global_refresh_enabled && self.describe_auto_refresh && self.mode == AppMode::Describe
+        self.global_refresh_enabled
+            && self.describe_auto_refresh
+            && self.mode == AppMode::Describe
             && self.last_describe_refresh.elapsed() >= self.refresh_interval
     }
 
     pub fn should_refresh_yaml(&self) -> bool {
-        self.global_refresh_enabled && self.yaml_auto_refresh && self.mode == AppMode::YamlView
+        self.global_refresh_enabled
+            && self.yaml_auto_refresh
+            && self.mode == AppMode::YamlView
             && self.last_yaml_refresh.elapsed() >= self.refresh_interval
     }
 
@@ -281,13 +306,25 @@ impl AppState {
             let mut status_parts = Vec::new();
 
             if self.auto_refresh {
-                status_parts.push(if self.language_chinese { "列表" } else { "Lists" });
+                status_parts.push(if self.language_chinese {
+                    "列表"
+                } else {
+                    "Lists"
+                });
             }
             if self.logs_auto_refresh {
-                status_parts.push(if self.language_chinese { "日志" } else { "Logs" });
+                status_parts.push(if self.language_chinese {
+                    "日志"
+                } else {
+                    "Logs"
+                });
             }
             if self.describe_auto_refresh {
-                status_parts.push(if self.language_chinese { "描述" } else { "Describe" });
+                status_parts.push(if self.language_chinese {
+                    "描述"
+                } else {
+                    "Describe"
+                });
             }
             if self.yaml_auto_refresh {
                 status_parts.push("YAML");
@@ -300,7 +337,11 @@ impl AppState {
                     "[No Auto-refresh]".to_string()
                 };
             } else {
-                let prefix = if self.language_chinese { "[自动刷新: " } else { "[Auto-refresh: " };
+                let prefix = if self.language_chinese {
+                    "[自动刷新: "
+                } else {
+                    "[Auto-refresh: "
+                };
                 self.refresh_status_text = format!("{}{} ]", prefix, status_parts.join(", "));
             }
         }
@@ -308,9 +349,17 @@ impl AppState {
 
     pub fn force_refresh_current_mode(&mut self) {
         match self.mode {
-            AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList | AppMode::NodeList
-            | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList
-            | AppMode::PVList | AppMode::ConfigMapList | AppMode::SecretList => {
+            AppMode::NamespaceList
+            | AppMode::PodList
+            | AppMode::ServiceList
+            | AppMode::NodeList
+            | AppMode::DeploymentList
+            | AppMode::JobList
+            | AppMode::DaemonSetList
+            | AppMode::PVCList
+            | AppMode::PVList
+            | AppMode::ConfigMapList
+            | AppMode::SecretList => {
                 self.refresh_data();
             }
             AppMode::Logs => {
@@ -429,11 +478,21 @@ impl AppState {
             AppMode::Logs => {
                 if self.split_log_mode {
                     match self.active_pane {
-                        ActivePane::Left => { if self.logs_scroll > 0 { self.logs_scroll -= 1; } }
-                        ActivePane::Right => { if self.split_log_scroll > 0 { self.split_log_scroll -= 1; } }
+                        ActivePane::Left => {
+                            if self.logs_scroll > 0 {
+                                self.logs_scroll -= 1;
+                            }
+                        }
+                        ActivePane::Right => {
+                            if self.split_log_scroll > 0 {
+                                self.split_log_scroll -= 1;
+                            }
+                        }
                     }
                 } else {
-                    if self.logs_scroll > 0 { self.logs_scroll -= 1; }
+                    if self.logs_scroll > 0 {
+                        self.logs_scroll -= 1;
+                    }
                 }
             }
             AppMode::Describe => {
@@ -460,11 +519,21 @@ impl AppState {
             AppMode::Logs => {
                 if self.split_log_mode {
                     match self.active_pane {
-                        ActivePane::Left => { if self.logs_scroll + 1 < self.logs.len() { self.logs_scroll += 1; } }
-                        ActivePane::Right => { if self.split_log_scroll + 1 < self.split_log_content.len() { self.split_log_scroll += 1; } }
+                        ActivePane::Left => {
+                            if self.logs_scroll + 1 < self.logs.len() {
+                                self.logs_scroll += 1;
+                            }
+                        }
+                        ActivePane::Right => {
+                            if self.split_log_scroll + 1 < self.split_log_content.len() {
+                                self.split_log_scroll += 1;
+                            }
+                        }
                     }
                 } else {
-                    if self.logs_scroll + 1 < self.logs.len() { self.logs_scroll += 1; }
+                    if self.logs_scroll + 1 < self.logs.len() {
+                        self.logs_scroll += 1;
+                    }
                 }
             }
             AppMode::Describe => {
@@ -492,7 +561,9 @@ impl AppState {
                 if self.split_log_mode {
                     match self.active_pane {
                         ActivePane::Left => self.logs_scroll = self.logs_scroll.saturating_sub(10),
-                        ActivePane::Right => self.split_log_scroll = self.split_log_scroll.saturating_sub(10),
+                        ActivePane::Right => {
+                            self.split_log_scroll = self.split_log_scroll.saturating_sub(10)
+                        }
                     }
                 } else {
                     self.logs_scroll = self.logs_scroll.saturating_sub(10);
@@ -559,21 +630,15 @@ impl AppState {
             AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
                 self.previous_mode.clone()
             }
-            AppMode::Search | AppMode::Confirm => {
-                self.previous_mode.clone()
-            }
+            AppMode::Search | AppMode::Confirm => self.previous_mode.clone(),
             _ => AppMode::NamespaceList,
         }
     }
 
     pub fn should_enable_mouse_capture(&self) -> bool {
         match self.mode {
-            AppMode::Logs | AppMode::TopView => {
-                !self.text_selection_mode
-            }
-            AppMode::Describe | AppMode::YamlView => {
-                !self.text_selection_mode
-            }
+            AppMode::Logs | AppMode::TopView => !self.text_selection_mode,
+            AppMode::Describe | AppMode::YamlView => !self.text_selection_mode,
             _ => false,
         }
     }
@@ -669,7 +734,9 @@ impl AppState {
 
     #[allow(dead_code)]
     pub fn toggle_mark_current(&mut self) {
-        if !self.batch_mode { return; }
+        if !self.batch_mode {
+            return;
+        }
         let idx = self.current_selection_index();
         if self.marked_items.contains(&idx) {
             self.marked_items.remove(&idx);
@@ -680,7 +747,9 @@ impl AppState {
 
     #[allow(dead_code)]
     pub fn mark_all(&mut self) {
-        if !self.batch_mode { return; }
+        if !self.batch_mode {
+            return;
+        }
         let count = self.current_list_len();
         for i in 0..count {
             self.marked_items.insert(i);
@@ -799,9 +868,18 @@ mod tests {
         let mut state = AppState::default();
         state.mode = AppMode::PodList;
         state.pods.push(crate::kubectl::types::Pod {
-            name: "test-pod".into(), namespace: "default".into(),
-            status: crate::kubectl::types::PodStatus { phase: "Running".into(), conditions: None, container_statuses: None },
-            ready: "1/1".into(), restarts: 0, age: "1d".into(), node: None, ip: None,
+            name: "test-pod".into(),
+            namespace: "default".into(),
+            status: crate::kubectl::types::PodStatus {
+                phase: "Running".into(),
+                conditions: None,
+                container_statuses: None,
+            },
+            ready: "1/1".into(),
+            restarts: 0,
+            age: "1d".into(),
+            node: None,
+            ip: None,
         });
         state.toggle_batch_mode();
         assert!(state.batch_mode);
@@ -818,9 +896,18 @@ mod tests {
         state.mode = AppMode::PodList;
         for i in 0..3 {
             state.pods.push(crate::kubectl::types::Pod {
-                name: format!("pod-{}", i), namespace: "default".into(),
-                status: crate::kubectl::types::PodStatus { phase: "Running".into(), conditions: None, container_statuses: None },
-                ready: "1/1".into(), restarts: 0, age: "1d".into(), node: None, ip: None,
+                name: format!("pod-{}", i),
+                namespace: "default".into(),
+                status: crate::kubectl::types::PodStatus {
+                    phase: "Running".into(),
+                    conditions: None,
+                    container_statuses: None,
+                },
+                ready: "1/1".into(),
+                restarts: 0,
+                age: "1d".into(),
+                node: None,
+                ip: None,
             });
         }
         state.toggle_batch_mode();
@@ -854,4 +941,3 @@ mod tests {
         assert_eq!(state.split_log_scroll, 0);
     }
 }
-

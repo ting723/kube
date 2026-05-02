@@ -1,4 +1,9 @@
-use ratatui::{Frame, layout::{Alignment, Constraint, Direction, Layout, Rect}, style::{Color, Style}, widgets::{Block, Borders, Clear, Paragraph}};
+use ratatui::{
+    Frame,
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    widgets::{Block, Borders, Clear, Paragraph},
+};
 
 use crate::app::state::{AppState, ConfirmAction};
 

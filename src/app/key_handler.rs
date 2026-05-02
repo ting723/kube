@@ -1,6 +1,6 @@
+use super::state::{ActivePane, AppMode, AppState, ConfirmAction};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use super::state::{AppState, ActivePane, ConfirmAction, AppMode};
 
 impl AppState {
     pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
@@ -27,11 +27,24 @@ impl AppState {
                     return Ok(());
                 }
                 match self.mode {
-                    AppMode::Help | AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                    AppMode::Help
+                    | AppMode::Logs
+                    | AppMode::Describe
+                    | AppMode::YamlView
+                    | AppMode::TopView => {
                         self.reset_scroll();
                         self.mode = self.get_previous_mode();
                     }
-                    AppMode::PodList | AppMode::ServiceList | AppMode::NodeList | AppMode::DeploymentList | AppMode::JobList | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList | AppMode::ConfigMapList | AppMode::SecretList => {
+                    AppMode::PodList
+                    | AppMode::ServiceList
+                    | AppMode::NodeList
+                    | AppMode::DeploymentList
+                    | AppMode::JobList
+                    | AppMode::DaemonSetList
+                    | AppMode::PVCList
+                    | AppMode::PVList
+                    | AppMode::ConfigMapList
+                    | AppMode::SecretList => {
                         self.mode = AppMode::NamespaceList;
                     }
                     _ => {}
@@ -84,18 +97,27 @@ impl AppState {
                 }
             }
             KeyCode::Char('d') => {
-                if self.batch_mode && !self.marked_items.is_empty() && self.mode == AppMode::PodList {
-                    let items: Vec<(String, String, String)> = self.marked_items.iter()
+                if self.batch_mode && !self.marked_items.is_empty() && self.mode == AppMode::PodList
+                {
+                    let items: Vec<(String, String, String)> = self
+                        .marked_items
+                        .iter()
                         .filter_map(|&i| self.pods.get(i))
-                        .map(|p| (self.current_namespace.clone(), "pod".to_string(), p.name.clone()))
+                        .map(|p| {
+                            (
+                                self.current_namespace.clone(),
+                                "pod".to_string(),
+                                p.name.clone(),
+                            )
+                        })
                         .collect();
                     self.confirm_action = Some(ConfirmAction::DeleteBatch { items });
                     self.mode = AppMode::Confirm;
                 }
             }
-            KeyCode::Char('L') => self.handle_logs(),     // L 查看日志
-            KeyCode::Char('D') => self.handle_delete(),   // D 删除（需确认）
-            KeyCode::Char('E') => self.handle_exec(),     // E 进入容器
+            KeyCode::Char('L') => self.handle_logs(), // L 查看日志
+            KeyCode::Char('D') => self.handle_delete(), // D 删除（需确认）
+            KeyCode::Char('E') => self.handle_exec(), // E 进入容器
             KeyCode::Char('Y') => self.handle_yaml_view(), // Y 查看YAML配置
             KeyCode::Char('T') => self.handle_top_view(), // T 查看资源使用
             // 搜索
@@ -148,17 +170,22 @@ impl AppState {
             }
             KeyCode::BackTab => self.switch_panel_left(), // Shift+Tab 向后切换
             // v 键切换批量模式
-            KeyCode::Char('v') => {
-                match self.mode {
-                    AppMode::NamespaceList | AppMode::PodList | AppMode::ServiceList
-                    | AppMode::NodeList | AppMode::DeploymentList | AppMode::JobList
-                    | AppMode::DaemonSetList | AppMode::PVCList | AppMode::PVList
-                    | AppMode::ConfigMapList | AppMode::SecretList => {
-                        self.toggle_batch_mode();
-                    }
-                    _ => {}
+            KeyCode::Char('v') => match self.mode {
+                AppMode::NamespaceList
+                | AppMode::PodList
+                | AppMode::ServiceList
+                | AppMode::NodeList
+                | AppMode::DeploymentList
+                | AppMode::JobList
+                | AppMode::DaemonSetList
+                | AppMode::PVCList
+                | AppMode::PVList
+                | AppMode::ConfigMapList
+                | AppMode::SecretList => {
+                    self.toggle_batch_mode();
                 }
-            }
+                _ => {}
+            },
             // M键在YAML/Describe模式下切换鼠标模式
             KeyCode::Char('M') | KeyCode::Char('m') => match self.mode {
                 AppMode::Describe | AppMode::YamlView | AppMode::Logs => {
@@ -757,8 +784,7 @@ impl AppState {
             self.split_log_pod_name = pod.name.clone();
         }
     }
-
-    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -803,7 +829,11 @@ mod tests {
             Pod {
                 name: "pod1".to_string(),
                 namespace: "default".to_string(),
-                status: PodStatus { phase: "Running".to_string(), conditions: None, container_statuses: None },
+                status: PodStatus {
+                    phase: "Running".to_string(),
+                    conditions: None,
+                    container_statuses: None,
+                },
                 ready: "1/1".to_string(),
                 restarts: 0,
                 age: "1d".to_string(),
@@ -813,7 +843,11 @@ mod tests {
             Pod {
                 name: "pod2".to_string(),
                 namespace: "default".to_string(),
-                status: PodStatus { phase: "Running".to_string(), conditions: None, container_statuses: None },
+                status: PodStatus {
+                    phase: "Running".to_string(),
+                    conditions: None,
+                    container_statuses: None,
+                },
                 ready: "1/1".to_string(),
                 restarts: 0,
                 age: "1d".to_string(),
@@ -887,14 +921,32 @@ mod tests {
         let mut state = create_test_state();
         state.mode = AppMode::Logs;
         state.pods.push(crate::kubectl::types::Pod {
-            name: "pod1".into(), namespace: "default".into(),
-            status: crate::kubectl::types::PodStatus { phase: "Running".into(), conditions: None, container_statuses: None },
-            ready: "1/1".into(), restarts: 0, age: "1d".into(), node: None, ip: None,
+            name: "pod1".into(),
+            namespace: "default".into(),
+            status: crate::kubectl::types::PodStatus {
+                phase: "Running".into(),
+                conditions: None,
+                container_statuses: None,
+            },
+            ready: "1/1".into(),
+            restarts: 0,
+            age: "1d".into(),
+            node: None,
+            ip: None,
         });
         state.pods.push(crate::kubectl::types::Pod {
-            name: "pod2".into(), namespace: "default".into(),
-            status: crate::kubectl::types::PodStatus { phase: "Running".into(), conditions: None, container_statuses: None },
-            ready: "1/1".into(), restarts: 0, age: "1d".into(), node: None, ip: None,
+            name: "pod2".into(),
+            namespace: "default".into(),
+            status: crate::kubectl::types::PodStatus {
+                phase: "Running".into(),
+                conditions: None,
+                container_statuses: None,
+            },
+            ready: "1/1".into(),
+            restarts: 0,
+            age: "1d".into(),
+            node: None,
+            ip: None,
         });
         let v_key = KeyEvent::new(KeyCode::Char('V'), KeyModifiers::NONE);
         state.handle_key_event(v_key).unwrap();

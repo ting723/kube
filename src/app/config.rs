@@ -97,7 +97,9 @@ impl UserConfig {
     /// Limit command history to 100 entries
     fn limit_command_history(mut config: Self) -> Self {
         if config.command_history.len() > 100 {
-            config.command_history = config.command_history.split_off(config.command_history.len() - 100);
+            config.command_history = config
+                .command_history
+                .split_off(config.command_history.len() - 100);
         }
         config
     }
