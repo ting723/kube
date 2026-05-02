@@ -32,9 +32,21 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
         .iter()
         .enumerate()
         .map(|(i, pod)| {
+            let is_marked = app.batch_mode && app.marked_items.contains(&i);
             let style = if i == app.selected_pod_index {
+                if is_marked {
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .bg(Color::DarkGray)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD)
+                }
+            } else if is_marked {
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(Color::Green)
                     .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
@@ -48,8 +60,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 _ => Color::Gray,
             };
 
+            let name_prefix = if is_marked { "✓ " } else { "  " };
+
             Row::new(vec![
-                Cell::from(pod.name.clone()),
+                Cell::from(format!("{}{}", name_prefix, pod.name)),
                 Cell::from(pod.ready.clone()),
                 Cell::from(pod.status.phase.clone()).style(Style::default().fg(status_color)),
                 Cell::from(pod.restarts.to_string()),
