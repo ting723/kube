@@ -24,6 +24,7 @@ impl AppState {
                 }
                 if self.split_log_mode {
                     self.split_log_mode = false;
+                    return Ok(());
                 }
                 match self.mode {
                     AppMode::Help | AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
@@ -83,7 +84,7 @@ impl AppState {
                 }
             }
             KeyCode::Char('d') => {
-                if self.batch_mode && !self.marked_items.is_empty() {
+                if self.batch_mode && !self.marked_items.is_empty() && self.mode == AppMode::PodList {
                     let items: Vec<(String, String, String)> = self.marked_items.iter()
                         .filter_map(|&i| self.pods.get(i))
                         .map(|p| (self.current_namespace.clone(), "pod".to_string(), p.name.clone()))
@@ -741,6 +742,9 @@ impl AppState {
     }
 
     pub fn enter_split_log_mode(&mut self) {
+        if self.pods.is_empty() {
+            return;
+        }
         self.split_log_mode = true;
         self.split_log_scroll = 0;
         self.active_pane = ActivePane::Right;
