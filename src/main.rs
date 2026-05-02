@@ -756,14 +756,61 @@ async fn run_app(
                 AppMode::NodeList => {
                     if let Some(node) = app.get_selected_node() {
                         let node_name = node.name.clone();
-                        app.set_current_command(&format!(
-                            "kubectl describe node {} (auto-refresh)",
-                            node_name
-                        ));
                         if let Ok(description) = client.describe_node(&node_name).await {
                             app.set_describe_content(description);
                         }
-                        app.clear_current_command();
+                    }
+                }
+                AppMode::JobList => {
+                    if let Some(job) = app.get_selected_job() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), job.name.clone());
+                        if let Ok(d) = client.describe_job(&ns, &name).await {
+                            app.set_describe_content(d);
+                        }
+                    }
+                }
+                AppMode::DaemonSetList => {
+                    if let Some(ds) = app.get_selected_daemonset() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), ds.name.clone());
+                        if let Ok(d) = client.describe_daemonset(&ns, &name).await {
+                            app.set_describe_content(d);
+                        }
+                    }
+                }
+                AppMode::ConfigMapList => {
+                    if let Some(cm) = app.get_selected_configmap() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), cm.name.clone());
+                        if let Ok(d) = client.describe_configmap(&ns, &name).await {
+                            app.set_describe_content(d);
+                        }
+                    }
+                }
+                AppMode::SecretList => {
+                    if let Some(s) = app.get_selected_secret() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), s.name.clone());
+                        if let Ok(d) = client.describe_secret(&ns, &name).await {
+                            app.set_describe_content(d);
+                        }
+                    }
+                }
+                AppMode::PVCList => {
+                    if let Some(pvc) = app.get_selected_pvc() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), pvc.name.clone());
+                        if let Ok(d) = client.describe_pvc(&ns, &name).await {
+                            app.set_describe_content(d);
+                        }
+                    }
+                }
+                AppMode::PVList => {
+                    if let Some(pv) = app.get_selected_pv() {
+                        if let Ok(d) = client.describe_pv(&pv.name).await {
+                            app.set_describe_content(d);
+                        }
                     }
                 }
                 _ => {}
@@ -809,14 +856,78 @@ async fn run_app(
                 AppMode::NodeList => {
                     if let Some(node) = app.get_selected_node() {
                         let node_name = node.name.clone();
-                        app.set_current_command(&format!(
-                            "kubectl get node {} -o yaml (auto-refresh)",
-                            node_name
-                        ));
                         if let Ok(yaml) = client.get_yaml("node", None, &node_name).await {
                             app.set_yaml_content(yaml);
                         }
-                        app.clear_current_command();
+                    }
+                }
+                AppMode::DeploymentList => {
+                    if let Some(deploy) = app.get_selected_deployment() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), deploy.name.clone());
+                        if let Ok(yaml) =
+                            client.get_yaml("deployment", Some(&ns), &name).await
+                        {
+                            app.set_yaml_content(yaml);
+                        }
+                    }
+                }
+                AppMode::JobList => {
+                    if let Some(job) = app.get_selected_job() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), job.name.clone());
+                        if let Ok(yaml) = client.get_yaml("job", Some(&ns), &name).await {
+                            app.set_yaml_content(yaml);
+                        }
+                    }
+                }
+                AppMode::DaemonSetList => {
+                    if let Some(ds) = app.get_selected_daemonset() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), ds.name.clone());
+                        if let Ok(yaml) =
+                            client.get_yaml("daemonset", Some(&ns), &name).await
+                        {
+                            app.set_yaml_content(yaml);
+                        }
+                    }
+                }
+                AppMode::ConfigMapList => {
+                    if let Some(cm) = app.get_selected_configmap() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), cm.name.clone());
+                        if let Ok(yaml) =
+                            client.get_yaml("configmap", Some(&ns), &name).await
+                        {
+                            app.set_yaml_content(yaml);
+                        }
+                    }
+                }
+                AppMode::SecretList => {
+                    if let Some(s) = app.get_selected_secret() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), s.name.clone());
+                        if let Ok(yaml) =
+                            client.get_yaml("secret", Some(&ns), &name).await
+                        {
+                            app.set_yaml_content(yaml);
+                        }
+                    }
+                }
+                AppMode::PVCList => {
+                    if let Some(pvc) = app.get_selected_pvc() {
+                        let (ns, name) =
+                            (app.current_namespace.clone(), pvc.name.clone());
+                        if let Ok(yaml) = client.get_yaml("pvc", Some(&ns), &name).await {
+                            app.set_yaml_content(yaml);
+                        }
+                    }
+                }
+                AppMode::PVList => {
+                    if let Some(pv) = app.get_selected_pv() {
+                        if let Ok(yaml) = client.get_yaml("pv", None, &pv.name).await {
+                            app.set_yaml_content(yaml);
+                        }
                     }
                 }
                 _ => {}
