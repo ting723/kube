@@ -151,33 +151,16 @@ async fn run_app(
                         execute_external_command(&exec_cmd, terminal).await?;
                         app.clear_current_command();
 
-                        // 在exec后强制刷新界面和数据
-                        app.logs.clear();
-                        app.describe_content.clear();
-
-                        // 强制返回到PodList模式并重新加载所有数据
+                        // exec后保留已有数据，只刷新Pod列表
                         app.mode = AppMode::PodList;
                         app.previous_mode = AppMode::PodList;
 
-                        // 重新加载所有必要的数据
+                        // 只增量刷新Pod列表
                         if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                             app.pods = pods;
                         }
-                        if let Ok(services) = client.get_services(&app.current_namespace).await {
-                            app.services = services;
-                        }
-                        if let Ok(deployments) =
-                            client.get_deployments(&app.current_namespace).await
-                        {
-                            app.deployments = deployments;
-                        }
-                        if let Ok(jobs) = client.get_jobs(&app.current_namespace).await {
-                            app.jobs = jobs;
-                        }
 
                         app.refresh_data();
-
-                        // 强制重绘界面确保显示正常
                         terminal.draw(|f| ui::render_ui(f, app))?;
                     }
 
@@ -300,6 +283,14 @@ async fn run_app(
                                         }
                                     }
                                     app.clear_current_command();
+                                    // Load split pane logs if in split mode
+                                    if app.split_log_mode && !app.split_log_pod_name.is_empty() {
+                                        let split_ns = app.current_namespace.clone();
+                                        let split_name = app.split_log_pod_name.clone();
+                                        if let Ok(split_logs) = client.get_pod_logs(&split_ns, &split_name, 100).await {
+                                            app.split_log_content = split_logs;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -670,6 +661,14 @@ async fn run_app(
                             app.logs = logs;
                             if app.logs_auto_scroll {
                                 app.logs_scroll = app.logs.len().saturating_sub(1);
+                            }
+                        }
+                        // Load split pane logs
+                        if app.split_log_mode && !app.split_log_pod_name.is_empty() {
+                            let split_ns = app.current_namespace.clone();
+                            let split_name = app.split_log_pod_name.clone();
+                            if let Ok(split_logs) = client.get_pod_logs(&split_ns, &split_name, 100).await {
+                                app.split_log_content = split_logs;
                             }
                         }
                     }
