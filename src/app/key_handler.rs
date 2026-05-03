@@ -58,11 +58,7 @@ impl AppState {
             // 滚动操作（仅在 Logs、Describe、YamlView 和 TopView 模式下）
             KeyCode::Char('V') => {
                 if self.mode == AppMode::Logs {
-                    if self.split_log_mode {
-                        self.split_log_mode = false;
-                    } else {
-                        self.enter_split_log_mode();
-                    }
+                    self.enter_split_log_mode();
                 }
             }
             KeyCode::Char('j') => {
