@@ -458,6 +458,12 @@ impl AppState {
             KeyCode::Enter => {
                 // Keep log_search_mode active for n/N navigation
             }
+            KeyCode::Char('n') => {
+                self.log_search_next();
+            }
+            KeyCode::Char('N') => {
+                self.log_search_previous();
+            }
             KeyCode::Backspace => {
                 self.log_search_query.pop();
                 self.perform_log_search();
@@ -870,6 +876,33 @@ impl AppState {
                     self.secrets.clear();
                     self.logs.clear();
                     self.describe_content.clear();
+                    self.yaml_content.clear();
+                    self.yaml_lines_cache.clear();
+                    self.log_panes.clear();
+                    self.split_log_mode = false;
+                    self.active_pane_index = 0;
+                    self.batch_mode = false;
+                    self.marked_items.clear();
+                    self.log_search_mode = false;
+                    self.log_search_query.clear();
+                    self.log_search_results.clear();
+                    self.current_log_search_index = 0;
+                    self.sort_column = 0;
+                    self.sort_ascending = true;
+                    self.yaml_content.clear();
+                    self.yaml_lines_cache.clear();
+                    // 清理新增功能状态
+                    self.log_panes.clear();
+                    self.split_log_mode = false;
+                    self.active_pane_index = 0;
+                    self.batch_mode = false;
+                    self.marked_items.clear();
+                    self.log_search_mode = false;
+                    self.log_search_query.clear();
+                    self.log_search_results.clear();
+                    self.current_log_search_index = 0;
+                    self.sort_column = 0;
+                    self.sort_ascending = true;
                     // 重置选中索引
                     self.selected_service_index = 0;
                     self.selected_deployment_index = 0;
@@ -915,6 +948,19 @@ impl AppState {
                 self.reset_scroll();
                 // 清理之前的describe内容
                 self.describe_content.clear();
+                    self.yaml_content.clear();
+                    self.yaml_lines_cache.clear();
+                    self.log_panes.clear();
+                    self.split_log_mode = false;
+                    self.active_pane_index = 0;
+                    self.batch_mode = false;
+                    self.marked_items.clear();
+                    self.log_search_mode = false;
+                    self.log_search_query.clear();
+                    self.log_search_results.clear();
+                    self.current_log_search_index = 0;
+                    self.sort_column = 0;
+                    self.sort_ascending = true;
                 self.mode = AppMode::Describe;
                 // 默认为鼠标滚动模式，方便快速浏览内容
                 self.text_selection_mode = false;
@@ -1303,5 +1349,86 @@ mod tests {
         assert_eq!(state.log_panes.len(), 2);
         assert_eq!(state.log_panes[1].pod_name, "pod2");
         assert_eq!(state.active_pane_index, 1);
+    }
+
+    #[test]
+    fn test_log_search_esc_clears() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        state.logs = vec!["test error line".into(), "info line".into()];
+        let slash = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE);
+        state.handle_key_event(slash).unwrap();
+        assert!(state.log_search_mode);
+        let e_key = KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE);
+        state.handle_key_event(e_key).unwrap();
+        assert!(!state.log_search_query.is_empty());
+        let esc = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        state.handle_key_event(esc).unwrap();
+        assert!(!state.log_search_mode);
+        assert!(state.log_search_query.is_empty());
+    }
+
+    #[test]
+    fn test_log_search_enter_keeps_mode() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        state.logs = vec![
+            "error in line 1".into(),
+            "line 2".into(),
+            "error in line 3".into(),
+        ];
+        let slash = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE);
+        state.handle_key_event(slash).unwrap();
+        assert!(state.log_search_mode);
+        for c in "error".chars() {
+            let k = KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE);
+            state.handle_key_event(k).unwrap();
+        }
+        assert_eq!(state.log_search_results.len(), 2);
+        let enter = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
+        state.handle_key_event(enter).unwrap();
+        assert!(state.log_search_mode);
+        let n_key = KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE);
+        state.handle_key_event(n_key).unwrap();
+        assert_eq!(state.current_log_search_index, 1);
+    }
+
+    #[test]
+    fn test_sort_key_in_pod_list() {
+        let mut state = create_test_state();
+        state.mode = AppMode::PodList;
+        let old_col = state.sort_column;
+        let gt = KeyEvent::new(KeyCode::Char('>'), KeyModifiers::NONE);
+        state.handle_key_event(gt).unwrap();
+        assert_ne!(state.sort_column, old_col);
+    }
+
+    #[test]
+    fn test_v_key_not_in_logs_mode() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        let v_key = KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE);
+        state.handle_key_event(v_key).unwrap();
+        assert!(!state.batch_mode);
+    }
+
+    #[test]
+    fn test_auto_scroll_toggle_in_logs() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        let old = state.logs_auto_scroll;
+        let a_key = KeyEvent::new(KeyCode::Char('A'), KeyModifiers::NONE);
+        state.handle_key_event(a_key).unwrap();
+        assert_eq!(state.logs_auto_scroll, !old);
+    }
+
+    #[test]
+    fn test_global_refresh_toggle() {
+        let mut state = create_test_state();
+        state.mode = AppMode::PodList;
+        let old = state.global_refresh_enabled;
+        let a_key = KeyEvent::new(KeyCode::Char('A'), KeyModifiers::NONE);
+        state.handle_key_event(a_key).unwrap();
+        assert_eq!(state.global_refresh_enabled, !old);
     }
 }

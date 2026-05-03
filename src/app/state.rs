@@ -1102,4 +1102,117 @@ mod tests {
         state.scroll_up();
         assert_eq!(state.log_panes[0].scroll, 0);
     }
+
+    #[test]
+    fn test_log_search_navigation_state() {
+        let mut state = AppState::default();
+        state.mode = AppMode::Logs;
+        state.log_search_results = vec![1, 3, 5];
+        state.current_log_search_index = 0;
+        state.current_log_search_index =
+            (state.current_log_search_index + 1) % state.log_search_results.len();
+        assert_eq!(state.current_log_search_index, 1);
+        state.current_log_search_index =
+            (state.current_log_search_index + 1) % state.log_search_results.len();
+        assert_eq!(state.current_log_search_index, 2);
+        state.current_log_search_index =
+            (state.current_log_search_index + 1) % state.log_search_results.len();
+        assert_eq!(state.current_log_search_index, 0);
+        state.current_log_search_index = if state.current_log_search_index == 0 {
+            state.log_search_results.len() - 1
+        } else {
+            state.current_log_search_index - 1
+        };
+        assert_eq!(state.current_log_search_index, 2);
+    }
+
+    #[test]
+    fn test_sort_toggle_cycles_columns() {
+        let mut state = AppState::default();
+        state.mode = AppMode::PodList;
+        assert_eq!(state.sort_column, 0);
+        assert!(state.sort_ascending);
+        state.toggle_sort();
+        assert_eq!(state.sort_column, 1);
+        state.toggle_sort();
+        assert_eq!(state.sort_column, 2);
+        for _ in 0..4 {
+            state.toggle_sort();
+        }
+        assert_eq!(state.sort_column, 0);
+        assert!(!state.sort_ascending);
+    }
+
+    #[test]
+    fn test_sort_toggle_noop_in_non_list_mode() {
+        let mut state = AppState::default();
+        state.mode = AppMode::Logs;
+        let old = state.sort_column;
+        state.toggle_sort();
+        assert_eq!(state.sort_column, old);
+    }
+
+    #[test]
+    fn test_log_panes_add_and_remove() {
+        let mut state = AppState::default();
+        state.log_panes.push(LogPane {
+            pod_name: "pod-a".into(),
+            content: vec!["line1".into()],
+            scroll: 0,
+        });
+        state.log_panes.push(LogPane {
+            pod_name: "pod-b".into(),
+            content: vec!["line2".into()],
+            scroll: 0,
+        });
+        assert_eq!(state.log_panes.len(), 2);
+        state.active_pane_index = 0;
+        state.log_panes.remove(state.active_pane_index);
+        assert_eq!(state.log_panes.len(), 1);
+        assert_eq!(state.log_panes[0].pod_name, "pod-b");
+    }
+
+    #[test]
+    fn test_auto_refresh_defaults_enabled() {
+        let state = AppState::default();
+        assert!(state.auto_refresh);
+        assert!(state.global_refresh_enabled);
+        assert!(state.logs_auto_refresh);
+        assert!(state.describe_auto_refresh);
+        assert!(state.yaml_auto_refresh);
+    }
+
+    #[test]
+    fn test_auto_scroll_default() {
+        let mut state = AppState::default();
+        assert!(state.logs_auto_scroll);
+        state.logs_auto_scroll = false;
+        assert!(!state.logs_auto_scroll);
+    }
+
+    #[test]
+    fn test_log_panes_scroll_independent() {
+        let mut state = AppState::default();
+        state.mode = AppMode::Logs;
+        state.split_log_mode = true;
+        state.log_panes.push(LogPane {
+            pod_name: "p1".into(),
+            content: vec!["a".into(), "b".into(), "c".into(), "d".into()],
+            scroll: 0,
+        });
+        state.log_panes.push(LogPane {
+            pod_name: "p2".into(),
+            content: vec!["x".into(), "y".into(), "z".into()],
+            scroll: 0,
+        });
+        state.active_pane_index = 0;
+        state.scroll_down();
+        assert_eq!(state.log_panes[0].scroll, 1);
+        assert_eq!(state.log_panes[1].scroll, 0);
+        state.active_pane_index = 1;
+        state.scroll_down();
+        state.scroll_down();
+        assert_eq!(state.log_panes[1].scroll, 2);
+        assert_eq!(state.log_panes[0].scroll, 1);
+    }
 }

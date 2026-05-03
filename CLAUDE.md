@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai) when working with code in
 
 ## 变更记录 (Changelog)
 
-- **2025-11-01**: 初始化架构师运行 - 完善文档结构，添加模块级 CLAUDE.md，创建 Mermaid 架构图，添加导航面包屑
+- **2025-11-01**: 初始化架构师运行 - 完善文档结构
+- **2026-05-03**: 大规模功能增强 - 多窗格日志、批量操作、日志搜索、表格排序、Context切换、Port-forward、可配置快捷键
 
 ## 项目概述
 
@@ -13,14 +14,17 @@ This file provides guidance to Claude Code (claude.ai) when working with code in
 
 主要功能:
 - 命名空间浏览和切换
-- Pod、Service、Deployment、Job、DaemonSet、PVC、PV、Node、ConfigMap、Secret 管理
-- 实时日志查看，支持自动刷新
-- 资源描述查看
-- YAML 配置查看
-- 资源监控 (CPU/内存)
-- 搜索功能
-- 双模式交互: 文本选择模式和鼠标滚动模式
-- 国际化支持 (中文/英文)
+- 11 种 K8s 资源管理
+- 多窗格日志对比 (V 追加/W 关闭/Tab 切换)
+- 日志内搜索 (/ 搜索/n N 跳转/关键词高亮)
+- 批量标记操作 (v 进入/Space 标记/d 删除)
+- 表格排序 (> 键循环切换列)
+- 资源描述/YAML/监控查看
+- Cluster/Context 切换 (C 键)
+- Port-forward 管理 (P 启动/Ctrl+P 停止)
+- 可配置快捷键 (~/.config/kube-tui/keys.json)
+- 中英文国际化支持
+- 文本选择/鼠标滚动双模式
 
 ## 架构总览
 
@@ -87,6 +91,10 @@ graph TD
 | src/kubectl/client.rs | 客户端实现 | KubectlClient 主实现 |
 | src/kubectl/commands.rs | 命令构建器 | Kubectl 命令字符串构建 |
 | src/kubectl/types.rs | 类型定义 | Kubernetes 资源数据结构 |
+| src/app/key_config.rs | 快捷键配置 | 可自定义键盘快捷键配置加载 |
+| src/app/key_handler.rs | 按键处理 | 键盘事件处理和模式分发 |
+| src/app/state.rs | 状态管理 | AppState, AppMode, ConfirmAction 等 |
+| src/app/mod.rs | 模块入口 | app 模块入口和公开接口 |
 | src/errors.rs | 错误处理模块 | 应用特定错误类型 |
 | src/resource_type.rs | 资源类型枚举 | 支持的 Kubernetes 资源类型 |
 
@@ -109,9 +117,12 @@ graph TD
 ### 关键设计模式
 
 1. **状态管理**：集中式 `AppState` 结构体包含所有应用状态
-2. **基于模式的 UI**：不同资源类型和操作有不同的视图
-3. **自动刷新**：基于时间的自动数据刷新，具有可配置的间隔
+2. **基于模式的 UI**：不同资源类型和操作有不同的视图 (`AppMode` 枚举)
+3. **自动刷新**：基于时间的自动数据刷新，全局/列表/日志/描述/YAML 独立控制
 4. **条件鼠标捕获**：仅在可滚动视图中启用鼠标捕获（通过 `M` 键配置）
+5. **多窗格日志**：`Vec<LogPane>` 动态窗格列表，V 追加/W 关闭/Tab 切换焦点
+6. **弹窗选择器**：Context 切换/Pod 选择器使用居中弹窗叠加层
+7. **快捷键配置**：`KeyConfig` 从 `~/.config/kube-tui/keys.json` 加载自定义绑定
 
 ## 运行与开发
 
@@ -172,8 +183,13 @@ graph TD
 ## 重要注意事项
 
 - 应用程序使用 `ratatui` 进行 TUI 渲染，使用 `crossterm` 进行终端交互
-- 鼠标捕获是有条件的：仅在可滚动视图（Logs, Describe, YamlView, TopView）中启用，并且在非文本选择模式下
-- 自动刷新有多个独立控制：全局、列表、日志、描述、YAML
+- 鼠标捕获是有条件的：仅在可滚动视图（Logs, Describe, YamlView, TopView）中启用
+- 自动刷新有多个独立控制：全局 (`A`)、日志 (`R`)、描述 (`R`)、YAML (`R`)
 - `M` 键在文本选择模式和鼠标滚动模式之间切换
 - `I` 键在中英文语言之间切换
 - 始终使用 `KubectlClient` 与 Kubernetes 交互，而不是直接调用 kubectl
+- 多窗格日志使用 `Vec<LogPane>`，按 V 追加，W 关闭当前，Tab 切换焦点
+- 日志搜索用 `/` 开启，Enter 确认，n/N 跳转，Esc 清除
+- 批量模式 `v` 切换，标记项 `✓` 绿色显示，d 批量删除
+- 切换 namespace 时会清理所有缓存状态（窗格/搜索/排序/批量标记）
+- `PortForward` 结构体记录 PID，退出应用时自动清理子进程

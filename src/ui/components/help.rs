@@ -9,76 +9,87 @@ use crate::app::state::AppState;
 
 pub fn render(f: &mut Frame, _area: Rect, _app: &AppState) {
     let help_text = r#"
-Kube TUI - Kubernetes Terminal Interface
-Kube TUI - Kubernetes 终端界面工具
+Kube TUI - Kubernetes Terminal Interface v0.2.0
+Kube TUI - Kubernetes 终端界面工具 v0.2.0
+
+KEY BINDINGS / 快捷键:
+  q                  Quit / 退出
+  ?                  Help / 帮助
+  I                  Toggle language (Chinese/English) / 切换语言
 
 NAVIGATION / 导航:
-  j/k or ↑/↓       Navigate lists / 列表导航
-  h/l or ←/→       Switch panels / 切换面板
-  Tab              Switch to next panel / 切换到下一个面板
-  Shift+Tab        Switch to previous panel / 切换到上一个面板
-  Enter            Select item / 选择项目
-  Esc              Go back / 返回上级
-  q                Quit application / 退出程序
-  ?                Show this help / 显示帮助
+  j/k  or  ↑/↓       Navigate lists / 列表导航
+  h/l  or  ←/→       Switch panels / 切换面板
+  Tab                 Next panel / 下一个面板
+  Shift+Tab           Previous panel / 上一个面板
+  Enter               Select namespace / Describe resource / 选择/查看详情
+  Esc                 Back / Cancel / 返回/取消
+  >                   Cycle sort column / 循环切换排序列
 
-NAMESPACE VIEW / 命名空间视图:
-  Enter            Switch to selected namespace / 切换到选中的命名空间
+RESOURCE ACTIONS / 资源操作:
+  Space               Describe resource / 查看资源详情
+  Y                   View YAML configuration / 查看 YAML 配置
+  T                   View resource metrics (CPU/Memory) / 查看资源监控
+  L                   View pod logs / 查看 Pod 日志
+  D                   Delete resource (confirmation required) / 删除资源
+  E                   Exec into pod container / 进入容器
+  /                   Search resources / 搜索资源
+  n/N                 Next/Previous search result / 下一个/上一个搜索结果
 
-POD VIEW / Pod 视图:
-  Space            Describe pod / 查看 Pod 详情
-  Y                View YAML config / 查看 YAML 配置
-  T                View resource usage / 查看资源使用情况
-  L                View pod logs / 查看 Pod 日志
-  D                Delete pod / 删除 Pod（需确认）
-  E                Exec into pod / 进入 Pod 容器
-  /                Search pods / 搜索 Pod
+BATCH OPERATIONS / 批量操作 (列表模式下):
+  v                   Toggle batch mode / 切换批量模式
+  Space               Mark/unmark item (marked items show ✓ green) / 标记/取消标记
+  Ctrl+A              Select all items / 全选
+  d                   Delete marked items / 删除已标记项
+  Esc                 Exit batch mode / 退出批量模式
 
 LOGS VIEW / 日志视图:
-  J/K              Scroll line by line / 按行滚动
-  PgUp/PgDn        Scroll page by page / 按页滚动
-  A                Toggle auto-scroll / 切换自动滚动
-  R                Toggle auto-refresh / 切换自动刷新
-  Esc              Return to pod list / 返回 Pod 列表
+  j/k                 Scroll line by line / 逐行滚动
+  PgUp/PgDn           Scroll page by page / 翻页滚动
+  V                   Split pane / Add log pane / 分屏/追加日志窗格
+  W                   Close focused pane / 关闭当前窗格
+  Tab                 Switch focus between panes / 切换窗格焦点
+  /                   Search within logs / 日志内搜索
+  n/N                 Next/Previous log search match / 下/上一个匹配
+  Enter               Confirm search, keep navigating / 确认搜索
+  Esc                 Clear search / exit / 清除搜索/退出
+  A                   Toggle auto-scroll / 切换自动滚动
+  R                   Toggle auto-refresh / 切换自动刷新
+  M                   Toggle mouse mode / 切换鼠标模式
 
-YAML/DESCRIBE/TOP VIEW / YAML/描述/监控视图:
-  J/K              Scroll content / 滚动内容
-  PgUp/PgDn        Scroll page by page / 按页滚动
-  Esc              Return to previous view / 返回上一级视图
+CLUSTER & NETWORK / 集群与网络:
+  C                   Switch Kubernetes context / 切换集群 Context
+  P                   Start port-forward (PodList mode) / 启动端口转发
+  Ctrl+P              Stop all port-forwards / 停止所有端口转发
 
-SERVICE/NODE/CONFIGMAP/SECRET VIEW / 服务/节点/配置/密钥视图:
-  Space            Describe resource / 查看资源详情
-  Y                View YAML config / 查看 YAML 配置
-  /                Search resources / 搜索资源
+REFRESH STATUS / 刷新状态:
+  Header shows [Refresh:ON]/[Refresh:OFF] / 标题栏显示刷新状态
+  Auto-refresh every 5 seconds / 每5秒自动刷新
+  R (Logs mode)       Toggle log auto-refresh / 切换日志自动刷新
+  R (Describe/YAML)   Toggle describe/yaml auto-refresh / 切换描述/YAML自动刷新
+  R (list modes)      Manual refresh / 手动刷新
+  Log pane shows [AutoScroll:ON/OFF] / 日志窗格显示自动滚动状态
 
-RESOURCE MONITORING / 资源监控:
-  T (in Pod view)  View CPU/Memory usage / 查看 CPU/内存使用情况
-  Note: Requires metrics-server / 注意: 需要安装 metrics-server
+STATUS COLORS / 状态颜色:
+  Green=Running / 绿色=运行中    Yellow=Pending / 黄色=等待中
+  Red=Failed / 红色=失败         Blue=Succeeded / 蓝色=已完成
+  Logs: Red=ERROR lines / 红色=错误    Yellow=WARN lines / 黄色=警告
 
-SEARCH / 搜索:
-  /                Start search / 开始搜索
-  Type query       Enter search terms / 输入搜索内容
-  ↑/↓              Navigate search results / 导航搜索结果
-  Enter            Confirm search / 确认搜索
-  n/N              Next/Previous result / 下一个/上一个结果
-  Esc              Cancel search / 取消搜索
+CONFIGURATION / 配置:
+  ~/.config/kube-tui/keys.json    Custom keybindings / 自定义快捷键
+  ~/.config/kube-tui/config.json  App configuration / 应用配置
 
-CONFIRM DIALOG / 确认对话框:
-  y/Y              Confirm action / 确认操作
-  n/N/Esc          Cancel action / 取消操作
-
-GENERAL / 常规:
-  • Auto-refresh every 5 seconds / 每5秒自动刷新
-  • Status colors: Green=Running, Yellow=Pending, Red=Failed
-  • 状态颜色: 绿色=运行中, 黄色=等待中, 红色=失败
-  • YAML syntax highlighting / YAML 语法高亮
-  • Mouse text selection supported / 支持鼠标文字选择
-  • Command line shows current kubectl operations
-  • 命令行显示当前 kubectl 操作
+NOTE / 注意:
+  • metrics-server required for Top view (T key)
+  • 监控视图 (T键) 需要安装 metrics-server
+  • Port-forward runs in background (Ctrl+P to stop)
+  • 端口转发后台运行 (Ctrl+P 停止)
+  • Batch mode works for Pod/Service/Deployment/Job/DaemonSet/ConfigMap/Secret/PVC/PV
+  • 批量模式支持 Pod/Service/Deployment/Job/DaemonSet/ConfigMap/Secret/PVC/PV
 "#;
 
     let paragraph = Paragraph::new(help_text)
-        .block(Block::default().borders(Borders::ALL).title("Help / 帮助"))
+        .block(Block::default().borders(Borders::ALL).title("Help / 帮助 (? to close / 关闭)"))
         .style(Style::default().fg(Color::White))
         .wrap(Wrap { trim: true });
 
