@@ -74,6 +74,17 @@ fn log_search_status(app: &AppState) -> String {
     }
 }
 
+fn line_style(line: &str) -> Style {
+    let lower = line.to_lowercase();
+    if lower.contains("error") {
+        Style::default().fg(Color::Red)
+    } else if lower.contains("warn") {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default().fg(Color::White)
+    }
+}
+
 fn render_log_pane(
     f: &mut Frame,
     area: Rect,
@@ -112,7 +123,7 @@ fn render_log_pane(
                     return Line::from(spans);
                 }
             }
-            Line::from(format!("{}{}", prefix, line))
+            Line::styled(format!("{}{}", prefix, line), line_style(line))
         })
         .collect();
     let paragraph = Paragraph::new(content)

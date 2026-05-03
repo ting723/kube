@@ -456,7 +456,7 @@ impl AppState {
                 self.log_search_results.clear();
             }
             KeyCode::Enter => {
-                self.log_search_mode = false;
+                // Keep log_search_mode active for n/N navigation
             }
             KeyCode::Backspace => {
                 self.log_search_query.pop();
@@ -926,6 +926,10 @@ impl AppState {
     pub fn handle_logs(&mut self) {
         match self.mode {
             AppMode::PodList => {
+                self.log_search_mode = false;
+                self.log_search_query.clear();
+                self.log_search_results.clear();
+                self.current_log_search_index = 0;
                 self.previous_mode = self.mode.clone();
                 self.reset_scroll();
                 self.logs_auto_scroll = true;
