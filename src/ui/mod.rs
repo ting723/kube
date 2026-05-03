@@ -322,10 +322,21 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                 }
             }
             AppMode::Logs => {
-                if app.text_selection_mode {
-                    "j/k 滚动 • PgUp/PgDn 翻页 • V 分屏日志 • A 切换自动滚动 • R 切换自动刷新 • M 切换到滚轮模式 • 可选中复制文本 • I 切换语言 • Esc 返回 • q 退出".to_string()
+                let refresh_state = if app.logs_auto_refresh {
+                    if app.language_chinese { "开" } else { "ON" }
                 } else {
-                    "j/k 滚动 • PgUp/PgDn 翻页 • V 分屏日志 • A 切换自动滚动 • R 切换自动刷新 • M 切换到选择模式 • 鼠标滚轮滚动 • I 切换语言 • Esc 返回 • q 退出".to_string()
+                    if app.language_chinese { "关" } else { "OFF" }
+                };
+                if app.language_chinese {
+                    format!(
+                        "j/k 滚动 • PgUp/PgDn 翻页 • V 分屏 • W 关窗格 • Tab 切换 • / 搜索 • A 自动滚动 • R 自动刷新[{}] • M 鼠标 • I 语言 • Esc 返回 • q 退出",
+                        refresh_state
+                    )
+                } else {
+                    format!(
+                        "j/k Scroll • PgUp/PgDn Page • V Split • W Close • Tab Switch • / Search • A Auto-scroll • R Refresh[{}] • M Mouse • I Lang • Esc Back • q Quit",
+                        refresh_state
+                    )
                 }
             }
             AppMode::Describe => {
@@ -466,10 +477,21 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                 }
             }
             AppMode::Logs => {
-                if app.text_selection_mode {
-                    "j/k Scroll • PgUp/PgDn Page • V Split Logs • A Toggle Auto-scroll • R Toggle Auto-refresh • M Switch to scroll mode • Can select text • I Language • Esc Back • q Quit".to_string()
+                let refresh_state = if app.logs_auto_refresh {
+                    if app.language_chinese { "开" } else { "ON" }
                 } else {
-                    "j/k Scroll • PgUp/PgDn Page • V Split Logs • A Toggle Auto-scroll • R Toggle Auto-refresh • M Switch to select mode • Mouse wheel scroll • I Language • Esc Back • q Quit".to_string()
+                    if app.language_chinese { "关" } else { "OFF" }
+                };
+                if app.language_chinese {
+                    format!(
+                        "j/k 滚动 • PgUp/PgDn 翻页 • V 分屏 • W 关窗格 • Tab 切换 • / 搜索 • A 自动滚动 • R 自动刷新[{}] • M 鼠标 • I 语言 • Esc 返回 • q 退出",
+                        refresh_state
+                    )
+                } else {
+                    format!(
+                        "j/k Scroll • PgUp/PgDn Page • V Split • W Close • Tab Switch • / Search • A Auto-scroll • R Refresh[{}] • M Mouse • I Lang • Esc Back • q Quit",
+                        refresh_state
+                    )
                 }
             }
             AppMode::Describe => {
@@ -500,6 +522,29 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
         }
     };
 
+    let mode_tag = if app.batch_mode {
+        if app.language_chinese {
+            "[批量模式] "
+        } else {
+            "[BATCH] "
+        }
+    } else if app.search_mode || app.log_search_mode {
+        if app.language_chinese {
+            "[搜索模式] "
+        } else {
+            "[SEARCH] "
+        }
+    } else if app.context_selection_mode || app.split_pod_selection_mode {
+        if app.language_chinese {
+            "[选择模式] "
+        } else {
+            "[SELECT] "
+        }
+    } else {
+        ""
+    };
+    let help_text = format!("{}{}", mode_tag, help_text);
+
     let footer = Paragraph::new(help_text)
         .block(Block::default().borders(Borders::ALL))
         .style(Style::default().fg(Color::Gray));
@@ -508,229 +553,23 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
 }
 
 fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
-    let command_text = if !app.current_command.is_empty() {
-        format!("Executing: {}", app.current_command)
+    let status_line = if !app.current_command.is_empty() {
+        format!("> {}", app.current_command)
     } else {
-        // 在空闲时显示当前模式的相关命令提示和刷新状态
-        match app.mode {
-            AppMode::Logs => {
-                if let Some(pod) = app.get_selected_pod() {
-                    format!(
-                        "kubectl logs -f -n {} {} --tail=100",
-                        app.current_namespace, pod.name
-                    )
-                } else {
-                    "Logs Mode - No pod selected".to_string()
-                }
-            }
-            AppMode::Describe => match app.previous_mode {
-                AppMode::PodList => {
-                    if let Some(pod) = app.get_selected_pod() {
-                        format!(
-                            "kubectl describe pod -n {} {}",
-                            app.current_namespace, pod.name
-                        )
-                    } else {
-                        "Describe Mode - No pod selected".to_string()
-                    }
-                }
-                AppMode::ServiceList => {
-                    if let Some(service) = app.get_selected_service() {
-                        format!(
-                            "kubectl describe service -n {} {}",
-                            app.current_namespace, service.name
-                        )
-                    } else {
-                        "Describe Mode - No service selected".to_string()
-                    }
-                }
-                AppMode::DeploymentList => {
-                    if let Some(deployment) = app.get_selected_deployment() {
-                        format!(
-                            "kubectl describe deployment -n {} {}",
-                            app.current_namespace, deployment.name
-                        )
-                    } else {
-                        "Describe Mode - No deployment selected".to_string()
-                    }
-                }
-                AppMode::JobList => {
-                    if let Some(job) = app.get_selected_job() {
-                        format!(
-                            "kubectl describe job -n {} {}",
-                            app.current_namespace, job.name
-                        )
-                    } else {
-                        "Describe Mode - No job selected".to_string()
-                    }
-                }
-                AppMode::NodeList => {
-                    if let Some(node) = app.get_selected_node() {
-                        format!("kubectl describe node {}", node.name)
-                    } else {
-                        "Describe Mode - No node selected".to_string()
-                    }
-                }
-                AppMode::DaemonSetList => {
-                    if let Some(daemonset) = app.get_selected_daemonset() {
-                        format!(
-                            "kubectl describe daemonset -n {} {}",
-                            app.current_namespace, daemonset.name
-                        )
-                    } else {
-                        "Describe Mode - No daemonset selected".to_string()
-                    }
-                }
-                AppMode::ConfigMapList => {
-                    if let Some(configmap) = app.get_selected_configmap() {
-                        format!(
-                            "kubectl describe configmap -n {} {}",
-                            app.current_namespace, configmap.name
-                        )
-                    } else {
-                        "Describe Mode - No configmap selected".to_string()
-                    }
-                }
-                AppMode::SecretList => {
-                    if let Some(secret) = app.get_selected_secret() {
-                        format!(
-                            "kubectl describe secret -n {} {}",
-                            app.current_namespace, secret.name
-                        )
-                    } else {
-                        "Describe Mode - No secret selected".to_string()
-                    }
-                }
-                AppMode::PVCList => {
-                    if let Some(pvc) = app.get_selected_pvc() {
-                        format!(
-                            "kubectl describe pvc -n {} {}",
-                            app.current_namespace, pvc.name
-                        )
-                    } else {
-                        "Describe Mode - No pvc selected".to_string()
-                    }
-                }
-                AppMode::PVList => {
-                    if let Some(pv) = app.get_selected_pv() {
-                        format!("kubectl describe pv {}", pv.name)
-                    } else {
-                        "Describe Mode - No pv selected".to_string()
-                    }
-                }
-                _ => "Describe Mode".to_string(),
-            },
-            AppMode::YamlView => match app.previous_mode {
-                AppMode::PodList => {
-                    if let Some(pod) = app.get_selected_pod() {
-                        format!(
-                            "kubectl get pod -n {} {} -o yaml",
-                            app.current_namespace, pod.name
-                        )
-                    } else {
-                        "YAML View Mode - No pod selected".to_string()
-                    }
-                }
-                AppMode::ServiceList => {
-                    if let Some(service) = app.get_selected_service() {
-                        format!(
-                            "kubectl get service -n {} {} -o yaml",
-                            app.current_namespace, service.name
-                        )
-                    } else {
-                        "YAML View Mode - No service selected".to_string()
-                    }
-                }
-                AppMode::DeploymentList => {
-                    if let Some(deployment) = app.get_selected_deployment() {
-                        format!(
-                            "kubectl get deployment -n {} {} -o yaml",
-                            app.current_namespace, deployment.name
-                        )
-                    } else {
-                        "YAML View Mode - No deployment selected".to_string()
-                    }
-                }
-                AppMode::NodeList => {
-                    if let Some(node) = app.get_selected_node() {
-                        format!("kubectl get node {} -o yaml", node.name)
-                    } else {
-                        "YAML View Mode - No node selected".to_string()
-                    }
-                }
-                _ => "YAML View Mode".to_string(),
-            },
-            AppMode::TopView => {
-                format!("kubectl top pods -n {}", app.current_namespace)
-            }
-            AppMode::Search => "Search Mode".to_string(),
-            AppMode::NamespaceList => "kubectl get namespaces".to_string(),
-            AppMode::PodList => format!("kubectl get pods -n {}", app.current_namespace),
-            AppMode::ServiceList => format!("kubectl get services -n {}", app.current_namespace),
-            AppMode::DeploymentList => {
-                format!("kubectl get deployments -n {}", app.current_namespace)
-            }
-            AppMode::JobList => format!("kubectl get jobs -n {}", app.current_namespace),
-            AppMode::DaemonSetList => {
-                format!("kubectl get daemonsets -n {}", app.current_namespace)
-            }
-            AppMode::NodeList => "kubectl get nodes".to_string(),
-            AppMode::ConfigMapList => {
-                format!("kubectl get configmaps -n {}", app.current_namespace)
-            }
-            AppMode::SecretList => format!("kubectl get secrets -n {}", app.current_namespace),
-            AppMode::PVCList => format!("kubectl get pvc -n {}", app.current_namespace),
-            AppMode::PVList => "kubectl get pv".to_string(),
-            AppMode::Confirm => "Confirmation Mode".to_string(),
-            AppMode::Help => "Help Mode".to_string(),
-            AppMode::CommandHistory => "Command History".to_string(),
+        let mut parts = vec![];
+        if !app.active_port_forwards.is_empty() {
+            parts.push(format!("PF:{}", app.active_port_forwards.len()));
         }
-    };
-
-    // 构建端口转发显示
-    let pf_display = if !app.active_port_forwards.is_empty() {
-        if app.show_port_forwards {
-            let items: Vec<String> = app
-                .active_port_forwards
-                .iter()
-                .map(|pf| {
-                    format!(
-                        "localhost:{} -> {}/{}:{}",
-                        pf.local_port, pf.namespace, pf.pod_name, pf.target_port
-                    )
-                })
-                .collect();
-            format!("Port-Forwards: {} | ", items.join(", "))
-        } else {
-            format!("[{} port-forward(s)] ", app.active_port_forwards.len())
+        if !app.current_context.is_empty() {
+            parts.push(format!("ctx:{}", app.current_context));
         }
-    } else if app.show_port_forwards {
-        "No active port-forwards | ".to_string()
-    } else {
-        String::new()
+        if !app.refresh_status_text.is_empty() {
+            parts.push(app.refresh_status_text.clone());
+        }
+        parts.join(" | ")
     };
 
-    // 添加 Context 显示
-    let context_display = if !app.current_context.is_empty() {
-        format!(" [Context: {}]", app.current_context)
-    } else {
-        String::new()
-    };
-
-    // 添加刷新状态显示
-    let status_text = if !app.refresh_status_text.is_empty() {
-        format!(
-            "{}{}{} - Press 'R' to refresh {}",
-            pf_display, command_text, context_display, app.refresh_status_text
-        )
-    } else {
-        format!(
-            "{}{}{} - Press 'R' to refresh",
-            pf_display, command_text, context_display
-        )
-    };
-
-    let command_line = Paragraph::new(status_text).style(Style::default().fg(Color::Cyan));
+    let command_line = Paragraph::new(status_line).style(Style::default().fg(Color::Cyan));
 
     f.render_widget(command_line, area);
 }

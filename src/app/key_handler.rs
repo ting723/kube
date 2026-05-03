@@ -116,8 +116,18 @@ impl AppState {
                     _ => self.move_selection_up(), // 在列表模式下正常导航
                 }
             }
-            KeyCode::Down => self.move_selection_down(),
-            KeyCode::Up => self.move_selection_up(),
+            KeyCode::Down => match self.mode {
+                AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                    self.scroll_down();
+                }
+                _ => self.move_selection_down(),
+            },
+            KeyCode::Up => match self.mode {
+                AppMode::Logs | AppMode::Describe | AppMode::YamlView | AppMode::TopView => {
+                    self.scroll_up();
+                }
+                _ => self.move_selection_up(),
+            },
             KeyCode::Char('h') | KeyCode::Left => self.handle_left_navigation(),
             KeyCode::Char('l') | KeyCode::Right => self.handle_right_navigation(),
             KeyCode::PageDown => self.scroll_page_down(),
@@ -964,19 +974,19 @@ impl AppState {
                 self.reset_scroll();
                 // 清理之前的describe内容
                 self.describe_content.clear();
-                    self.yaml_content.clear();
-                    self.yaml_lines_cache.clear();
-                    self.log_panes.clear();
-                    self.split_log_mode = false;
-                    self.active_pane_index = 0;
-                    self.batch_mode = false;
-                    self.marked_items.clear();
-                    self.log_search_mode = false;
-                    self.log_search_query.clear();
-                    self.log_search_results.clear();
-                    self.current_log_search_index = 0;
-                    self.sort_column = 0;
-                    self.sort_ascending = true;
+                self.yaml_content.clear();
+                self.yaml_lines_cache.clear();
+                self.log_panes.clear();
+                self.split_log_mode = false;
+                self.active_pane_index = 0;
+                self.batch_mode = false;
+                self.marked_items.clear();
+                self.log_search_mode = false;
+                self.log_search_query.clear();
+                self.log_search_results.clear();
+                self.current_log_search_index = 0;
+                self.sort_column = 0;
+                self.sort_ascending = true;
                 self.mode = AppMode::Describe;
                 // 默认为鼠标滚动模式，方便快速浏览内容
                 self.text_selection_mode = false;
