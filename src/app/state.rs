@@ -4,6 +4,8 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use crossterm::event::MouseEvent;
 
+use super::KeyConfig;
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum ConfirmAction {
@@ -60,6 +62,22 @@ pub enum ActivePane {
 }
 
 #[derive(Debug, Clone)]
+pub struct LogPane {
+    pub pod_name: String,
+    pub content: Vec<String>,
+    pub scroll: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct PortForward {
+    pub namespace: String,
+    pub pod_name: String,
+    pub local_port: u16,
+    pub target_port: u16,
+    pub child_pid: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
 pub struct AppState {
     // Existing fields - kept compatible with original app.rs
     pub mode: AppMode,
@@ -113,6 +131,9 @@ pub struct AppState {
     pub yaml_auto_refresh: bool,
     pub last_yaml_refresh: Instant,
     pub pending_exec: Option<String>,
+    pub show_port_forwards: bool,
+    pub active_port_forwards: Vec<PortForward>,
+    pub pending_port_forward: Option<(String, String)>,
     pub yaml_content: String,
     pub yaml_lines_cache: Vec<String>,
     pub yaml_scroll: usize,
@@ -130,13 +151,12 @@ pub struct AppState {
     #[allow(dead_code)]
     pub batch_mode: bool,
     pub split_log_mode: bool,
+    pub log_panes: Vec<LogPane>,
+    pub active_pane_index: usize,
     pub split_pod_selection_mode: bool,
     pub split_pod_selection_index: usize,
-    #[allow(dead_code)]
-    pub split_log_pod_name: String,
-    pub split_log_content: Vec<String>,
-    pub split_log_scroll: usize,
-    pub active_pane: ActivePane,
+    pub sort_column: usize,
+    pub sort_ascending: bool,
     #[allow(dead_code)]
     pub marked_items: HashSet<usize>,
     #[allow(dead_code)]
@@ -149,6 +169,17 @@ pub struct AppState {
     pub streaming_logs: bool,
     #[allow(dead_code)]
     pub command_history: Vec<String>,
+
+    // Context switching
+    pub available_contexts: Vec<String>,
+    pub selected_context_index: usize,
+    pub current_context: String,
+    pub context_selection_mode: bool,
+    pub pending_context_switch: Option<bool>,
+
+    // Key configuration
+    #[allow(dead_code)]
+    pub key_config: KeyConfig,
 }
 
 impl Default for AppState {
@@ -205,6 +236,9 @@ impl Default for AppState {
             yaml_auto_refresh: true,
             last_yaml_refresh: Instant::now(),
             pending_exec: None,
+            show_port_forwards: false,
+            active_port_forwards: Vec::new(),
+            pending_port_forward: None,
             yaml_content: String::new(),
             yaml_lines_cache: Vec::new(),
             yaml_scroll: 0,
@@ -219,12 +253,12 @@ impl Default for AppState {
             last_selected_positions: HashMap::new(),
             batch_mode: false,
             split_log_mode: false,
+            log_panes: Vec::new(),
+            active_pane_index: 0,
             split_pod_selection_mode: false,
             split_pod_selection_index: 0,
-            split_log_pod_name: String::new(),
-            split_log_content: Vec::new(),
-            split_log_scroll: 0,
-            active_pane: ActivePane::Left,
+            sort_column: 0,
+            sort_ascending: true,
             marked_items: HashSet::new(),
             exec_returning: false,
             log_search_query: String::new(),
@@ -233,6 +267,14 @@ impl Default for AppState {
             log_search_mode: false,
             streaming_logs: false,
             command_history: Vec::new(),
+
+            available_contexts: Vec::new(),
+            selected_context_index: 0,
+            current_context: String::new(),
+            context_selection_mode: false,
+            pending_context_switch: None,
+
+            key_config: KeyConfig::load(),
         }
     }
 }
@@ -477,22 +519,13 @@ impl AppState {
         match self.mode {
             AppMode::Logs => {
                 if self.split_log_mode {
-                    match self.active_pane {
-                        ActivePane::Left => {
-                            if self.logs_scroll > 0 {
-                                self.logs_scroll -= 1;
-                            }
-                        }
-                        ActivePane::Right => {
-                            if self.split_log_scroll > 0 {
-                                self.split_log_scroll -= 1;
-                            }
+                    if let Some(pane) = self.log_panes.get_mut(self.active_pane_index) {
+                        if pane.scroll > 0 {
+                            pane.scroll -= 1;
                         }
                     }
-                } else {
-                    if self.logs_scroll > 0 {
-                        self.logs_scroll -= 1;
-                    }
+                } else if self.logs_scroll > 0 {
+                    self.logs_scroll -= 1;
                 }
             }
             AppMode::Describe => {
@@ -518,22 +551,13 @@ impl AppState {
         match self.mode {
             AppMode::Logs => {
                 if self.split_log_mode {
-                    match self.active_pane {
-                        ActivePane::Left => {
-                            if self.logs_scroll + 1 < self.logs.len() {
-                                self.logs_scroll += 1;
-                            }
-                        }
-                        ActivePane::Right => {
-                            if self.split_log_scroll + 1 < self.split_log_content.len() {
-                                self.split_log_scroll += 1;
-                            }
+                    if let Some(pane) = self.log_panes.get_mut(self.active_pane_index) {
+                        if pane.scroll + 1 < pane.content.len() {
+                            pane.scroll += 1;
                         }
                     }
-                } else {
-                    if self.logs_scroll + 1 < self.logs.len() {
-                        self.logs_scroll += 1;
-                    }
+                } else if self.logs_scroll + 1 < self.logs.len() {
+                    self.logs_scroll += 1;
                 }
             }
             AppMode::Describe => {
@@ -559,11 +583,8 @@ impl AppState {
         match self.mode {
             AppMode::Logs => {
                 if self.split_log_mode {
-                    match self.active_pane {
-                        ActivePane::Left => self.logs_scroll = self.logs_scroll.saturating_sub(10),
-                        ActivePane::Right => {
-                            self.split_log_scroll = self.split_log_scroll.saturating_sub(10)
-                        }
+                    if let Some(pane) = self.log_panes.get_mut(self.active_pane_index) {
+                        pane.scroll = pane.scroll.saturating_sub(10);
                     }
                 } else {
                     self.logs_scroll = self.logs_scroll.saturating_sub(10);
@@ -586,15 +607,9 @@ impl AppState {
         match self.mode {
             AppMode::Logs => {
                 if self.split_log_mode {
-                    match self.active_pane {
-                        ActivePane::Left => {
-                            let max = self.logs.len().saturating_sub(1);
-                            self.logs_scroll = (self.logs_scroll + 10).min(max);
-                        }
-                        ActivePane::Right => {
-                            let max = self.split_log_content.len().saturating_sub(1);
-                            self.split_log_scroll = (self.split_log_scroll + 10).min(max);
-                        }
+                    if let Some(pane) = self.log_panes.get_mut(self.active_pane_index) {
+                        let max = pane.content.len().saturating_sub(1);
+                        pane.scroll = (pane.scroll + 10).min(max);
                     }
                 } else {
                     let max_scroll = self.logs.len().saturating_sub(1);
@@ -619,7 +634,9 @@ impl AppState {
 
     pub fn reset_scroll(&mut self) {
         self.logs_scroll = 0;
-        self.split_log_scroll = 0;
+        for pane in &mut self.log_panes {
+            pane.scroll = 0;
+        }
         self.describe_scroll = 0;
         self.yaml_scroll = 0;
         self.metrics_scroll = 0;
@@ -774,6 +791,152 @@ impl AppState {
         }
     }
 
+    pub fn toggle_sort(&mut self) {
+        let max_cols = match self.mode {
+            AppMode::NamespaceList => 2,
+            AppMode::PodList => 6,
+            AppMode::ServiceList => 5,
+            AppMode::NodeList => 5,
+            AppMode::DeploymentList => 5,
+            AppMode::JobList => 4,
+            AppMode::DaemonSetList => 5,
+            AppMode::PVCList => 5,
+            AppMode::PVList => 5,
+            AppMode::ConfigMapList => 4,
+            AppMode::SecretList => 3,
+            _ => return,
+        };
+        if self.sort_column == max_cols - 1 {
+            self.sort_column = 0;
+            self.sort_ascending = !self.sort_ascending;
+        } else {
+            self.sort_column += 1;
+        }
+    }
+
+    pub fn sort_pods(&mut self) {
+        match self.sort_column {
+            0 => self.pods.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.name.cmp(&b.name)
+                } else {
+                    b.name.cmp(&a.name)
+                }
+            }),
+            1 => self.pods.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.ready.cmp(&b.ready)
+                } else {
+                    b.ready.cmp(&a.ready)
+                }
+            }),
+            2 => self.pods.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.status.phase.cmp(&b.status.phase)
+                } else {
+                    b.status.phase.cmp(&a.status.phase)
+                }
+            }),
+            3 => self.pods.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.restarts.cmp(&b.restarts)
+                } else {
+                    b.restarts.cmp(&a.restarts)
+                }
+            }),
+            4 => self.pods.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.age.cmp(&b.age)
+                } else {
+                    b.age.cmp(&a.age)
+                }
+            }),
+            5 => self.pods.sort_by(|a, b| {
+                let na = a.node.as_deref().unwrap_or("");
+                let nb = b.node.as_deref().unwrap_or("");
+                if self.sort_ascending {
+                    na.cmp(nb)
+                } else {
+                    nb.cmp(na)
+                }
+            }),
+            _ => {}
+        }
+    }
+
+    pub fn sort_services(&mut self) {
+        match self.sort_column {
+            0 => self.services.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.name.cmp(&b.name)
+                } else {
+                    b.name.cmp(&a.name)
+                }
+            }),
+            1 => self.services.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.cluster_ip.cmp(&b.cluster_ip)
+                } else {
+                    b.cluster_ip.cmp(&a.cluster_ip)
+                }
+            }),
+            2 => self.services.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.type_.cmp(&b.type_)
+                } else {
+                    b.type_.cmp(&a.type_)
+                }
+            }),
+            3 => self.services.sort_by(|a, b| {
+                let ports_a = a
+                    .ports
+                    .iter()
+                    .map(|p| p.port.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let ports_b = b
+                    .ports
+                    .iter()
+                    .map(|p| p.port.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if self.sort_ascending {
+                    ports_a.cmp(&ports_b)
+                } else {
+                    ports_b.cmp(&ports_a)
+                }
+            }),
+            4 => self.services.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.age.cmp(&b.age)
+                } else {
+                    b.age.cmp(&a.age)
+                }
+            }),
+            _ => {}
+        }
+    }
+
+    pub fn sort_namespaces(&mut self) {
+        match self.sort_column {
+            0 => self.namespaces.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.cmp(b)
+                } else {
+                    b.cmp(a)
+                }
+            }),
+            1 => self.namespaces.sort_by(|a, b| {
+                if self.sort_ascending {
+                    a.cmp(b)
+                } else {
+                    b.cmp(a)
+                }
+            }),
+            _ => {}
+        }
+    }
+
     #[allow(dead_code)]
     fn current_list_len(&self) -> usize {
         match self.mode {
@@ -919,7 +1082,8 @@ mod tests {
     fn test_split_log_mode_defaults() {
         let state = AppState::default();
         assert!(!state.split_log_mode);
-        assert_eq!(state.split_log_scroll, 0);
+        assert!(state.log_panes.is_empty());
+        assert_eq!(state.active_pane_index, 0);
     }
 
     #[test]
@@ -927,17 +1091,15 @@ mod tests {
         let mut state = AppState::default();
         state.mode = AppMode::Logs;
         state.split_log_mode = true;
-        state.split_log_content = vec!["a".into(), "b".into(), "c".into()];
-        state.active_pane = ActivePane::Right;
+        state.log_panes.push(LogPane {
+            pod_name: "pod2".into(),
+            content: vec!["a".into(), "b".into(), "c".into()],
+            scroll: 0,
+        });
+        state.active_pane_index = 0;
         state.scroll_down();
-        assert_eq!(state.split_log_scroll, 1);
+        assert_eq!(state.log_panes[0].scroll, 1);
         state.scroll_up();
-        assert_eq!(state.split_log_scroll, 0);
-        state.active_pane = ActivePane::Left;
-        state.logs = vec!["x".into(), "y".into()];
-        state.logs_scroll = 0;
-        state.scroll_down();
-        assert_eq!(state.logs_scroll, 1);
-        assert_eq!(state.split_log_scroll, 0);
+        assert_eq!(state.log_panes[0].scroll, 0);
     }
 }
