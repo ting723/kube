@@ -141,13 +141,9 @@ pub struct AppState {
     pub marked_items: HashSet<usize>,
     #[allow(dead_code)]
     pub exec_returning: bool,
-    #[allow(dead_code)]
     pub log_search_query: String,
-    #[allow(dead_code)]
     pub log_search_results: Vec<usize>,
-    #[allow(dead_code)]
     pub current_log_search_index: usize,
-    #[allow(dead_code)]
     pub log_search_mode: bool,
     #[allow(dead_code)]
     pub streaming_logs: bool,

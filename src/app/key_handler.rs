@@ -4,6 +4,11 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 impl AppState {
     pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
+        // 处理日志搜索模式
+        if self.log_search_mode {
+            return self.handle_log_search_key_event(key_event);
+        }
+
         // 处理搜索模式
         if self.search_mode {
             return self.handle_search_key_event(key_event);
@@ -127,9 +132,27 @@ impl AppState {
             KeyCode::Char('Y') => self.handle_yaml_view(), // Y 查看YAML配置
             KeyCode::Char('T') => self.handle_top_view(), // T 查看资源使用
             // 搜索
-            KeyCode::Char('/') => self.start_search(),
-            KeyCode::Char('n') => self.search_next(),
-            KeyCode::Char('N') => self.search_previous(),
+            KeyCode::Char('/') => {
+                if self.mode == AppMode::Logs && !self.log_search_mode {
+                    self.start_log_search();
+                } else {
+                    self.start_search();
+                }
+            }
+            KeyCode::Char('n') => {
+                if self.log_search_mode {
+                    self.log_search_next();
+                } else {
+                    self.search_next();
+                }
+            }
+            KeyCode::Char('N') => {
+                if self.log_search_mode {
+                    self.log_search_previous();
+                } else {
+                    self.search_previous();
+                }
+            }
             // 自动刷新相关快捷键
             KeyCode::Char('A') => {
                 match self.mode {
@@ -340,6 +363,96 @@ impl AppState {
             _ => {}
         }
         Ok(())
+    }
+
+    // 日志搜索相关方法
+    pub fn start_log_search(&mut self) {
+        self.log_search_mode = true;
+        self.log_search_query.clear();
+        self.log_search_results.clear();
+        self.current_log_search_index = 0;
+    }
+
+    fn handle_log_search_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
+        match key_event.code {
+            KeyCode::Esc => {
+                self.log_search_mode = false;
+                self.log_search_query.clear();
+                self.log_search_results.clear();
+            }
+            KeyCode::Enter => {
+                self.log_search_mode = false;
+            }
+            KeyCode::Backspace => {
+                self.log_search_query.pop();
+                self.perform_log_search();
+            }
+            KeyCode::Char(c) => {
+                self.log_search_query.push(c);
+                self.perform_log_search();
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn perform_log_search(&mut self) {
+        self.log_search_results.clear();
+        self.current_log_search_index = 0;
+        let query = self.log_search_query.to_lowercase();
+        if query.is_empty() {
+            return;
+        }
+        let log_set = if self.split_log_mode && self.active_pane == ActivePane::Right {
+            &self.split_log_content
+        } else {
+            &self.logs
+        };
+        for (i, line) in log_set.iter().enumerate() {
+            if line.to_lowercase().contains(&query) {
+                self.log_search_results.push(i);
+            }
+        }
+        if !self.log_search_results.is_empty() {
+            self.current_log_search_index = 0;
+            let target = self.log_search_results[0];
+            if self.split_log_mode && self.active_pane == ActivePane::Right {
+                self.split_log_scroll = target;
+            } else {
+                self.logs_scroll = target;
+            }
+        }
+    }
+
+    pub fn log_search_next(&mut self) {
+        if self.log_search_results.is_empty() {
+            return;
+        }
+        self.current_log_search_index =
+            (self.current_log_search_index + 1) % self.log_search_results.len();
+        self.jump_to_log_search_result();
+    }
+
+    pub fn log_search_previous(&mut self) {
+        if self.log_search_results.is_empty() {
+            return;
+        }
+        self.current_log_search_index = if self.current_log_search_index == 0 {
+            self.log_search_results.len() - 1
+        } else {
+            self.current_log_search_index - 1
+        };
+        self.jump_to_log_search_result();
+    }
+
+    fn jump_to_log_search_result(&mut self) {
+        if let Some(&line_num) = self.log_search_results.get(self.current_log_search_index) {
+            if self.split_log_mode && self.active_pane == ActivePane::Right {
+                self.split_log_scroll = line_num;
+            } else {
+                self.logs_scroll = line_num;
+            }
+        }
     }
 
     fn perform_search(&mut self) {
