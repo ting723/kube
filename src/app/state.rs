@@ -218,7 +218,7 @@ impl Default for AppState {
             describe_lines_cache: Vec::new(),
             last_update: Instant::now(),
             auto_refresh: true,
-            refresh_interval: Duration::from_secs(5),
+            refresh_interval: Duration::from_secs(3),
             logs_scroll: 0,
             describe_scroll: 0,
             search_query: String::new(),

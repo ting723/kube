@@ -208,20 +208,24 @@ impl AppState {
                     }
                 }
             }
-            // 日志自动刷新切换（仅在日志模式下）
+            // 刷新切换（R键：内容模式toggle+即时刷新，列表模式手动刷新）
             KeyCode::Char('R') => {
                 match self.mode {
                     AppMode::Logs => {
                         self.logs_auto_refresh = !self.logs_auto_refresh;
                         self.update_refresh_status();
+                        self.refresh_logs();
                     }
                     AppMode::Describe => {
-                        // 在Describe模式下，R键切换describe自动刷新
                         self.toggle_describe_refresh();
+                        self.refresh_describe();
                     }
                     AppMode::YamlView => {
-                        // 在YAML模式下，R键切换YAML自动刷新
                         self.toggle_yaml_refresh();
+                        self.refresh_yaml();
+                    }
+                    AppMode::TopView => {
+                        self.refresh_data();
                     }
                     _ => {
                         // 在其他模式下，R键手动刷新当前数据
@@ -709,10 +713,8 @@ impl AppState {
                 }
                 ConfirmAction::DeleteBatch { items } => {
                     for (namespace, resource_type, name) in items {
-                        let cmd = format!(
-                            "kubectl delete {} -n {} {}",
-                            resource_type, namespace, name
-                        );
+                        let cmd =
+                            format!("kubectl delete {} -n {} {}", resource_type, namespace, name);
                         self.pending_commands.push(cmd);
                     }
                     self.set_current_command(&format!("批量删除 {} 个资源", items.len()));

@@ -215,32 +215,28 @@ async fn run_app(
                         let local_port = 8080 + app.active_port_forwards.len() as u16;
                         let target_port = 80u16;
 
-                        app.set_current_command(&format!(
+                        let pf_cmd = format!(
                             "kubectl port-forward -n {} {} {}:{}",
                             ns, pod_name, local_port, target_port
-                        ));
+                        );
+                        app.set_current_command(&pf_cmd);
 
-                        let child = std::process::Command::new("kubectl")
-                            .args(&[
-                                "port-forward",
-                                "-n",
-                                &ns,
-                                &pod_name,
-                                &format!("{}:{}", local_port, target_port),
-                            ])
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::null())
-                            .spawn()
-                            .ok();
-
-                        let pid = child.as_ref().map(|c| c.id());
+                        // 用 nohup 后台运行，避免子进程被销毁
+                        let full_cmd = format!(
+                            "nohup kubectl port-forward -n {} {} {}:{} >/dev/null 2>&1 &",
+                            ns, pod_name, local_port, target_port
+                        );
+                        let _ = std::process::Command::new("sh")
+                            .arg("-c")
+                            .arg(&full_cmd)
+                            .output();
 
                         app.active_port_forwards.push(PortForward {
                             namespace: ns,
                             pod_name,
                             local_port,
                             target_port,
-                            child_pid: pid,
+                            child_pid: None,
                         });
 
                         app.clear_current_command();
@@ -251,10 +247,7 @@ async fn run_app(
                         let commands: Vec<String> = app.pending_commands.drain(..).collect();
                         for cmd in &commands {
                             app.set_current_command(cmd);
-                            let _ = std::process::Command::new("sh")
-                                .arg("-c")
-                                .arg(cmd)
-                                .output();
+                            let _ = std::process::Command::new("sh").arg("-c").arg(cmd).output();
                         }
                         app.clear_current_command();
                         app.refresh_data();
