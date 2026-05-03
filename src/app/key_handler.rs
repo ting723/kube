@@ -1469,4 +1469,66 @@ mod tests {
         state.handle_key_event(a_key).unwrap();
         assert_eq!(state.global_refresh_enabled, !old);
     }
+
+    #[test]
+    fn test_n_appends_in_log_search_when_not_confirmed() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        state.logs = vec!["line 1".into()];
+        // Start log search
+        let slash = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE);
+        state.handle_key_event(slash).unwrap();
+        assert!(state.log_search_mode);
+        // Type 'n' - should append to query, not navigate
+        let n_key = KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE);
+        state.handle_key_event(n_key).unwrap();
+        assert_eq!(state.log_search_query, "n");
+        assert!(!state.log_search_confirmed);
+    }
+
+    #[test]
+    fn test_n_navigates_in_log_search_when_confirmed() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        state.logs = vec!["nginx error".into(), "line 2".into(), "nginx warn".into()];
+        // Start log search and search for "nginx"
+        let slash = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE);
+        state.handle_key_event(slash).unwrap();
+        for c in "nginx".chars() {
+            let k = KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE);
+            state.handle_key_event(k).unwrap();
+        }
+        assert_eq!(state.log_search_results.len(), 2);
+        // Confirm with Enter
+        let enter = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
+        state.handle_key_event(enter).unwrap();
+        assert!(state.log_search_confirmed);
+        // Now n should navigate
+        let n_key = KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE);
+        state.handle_key_event(n_key).unwrap();
+        assert_eq!(state.current_log_search_index, 1);
+    }
+
+    #[test]
+    fn test_arrow_keys_scroll_in_logs_mode() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        state.logs = vec!["a".into(), "b".into(), "c".into()];
+        let down = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        state.handle_key_event(down).unwrap();
+        assert_eq!(state.logs_scroll, 1);
+        let up = KeyEvent::new(KeyCode::Up, KeyModifiers::NONE);
+        state.handle_key_event(up).unwrap();
+        assert_eq!(state.logs_scroll, 0);
+    }
+
+    #[test]
+    fn test_r_key_toggles_logs_auto_refresh() {
+        let mut state = create_test_state();
+        state.mode = AppMode::Logs;
+        let old = state.logs_auto_refresh;
+        let r_key = KeyEvent::new(KeyCode::Char('R'), KeyModifiers::NONE);
+        state.handle_key_event(r_key).unwrap();
+        assert_eq!(state.logs_auto_refresh, !old);
+    }
 }

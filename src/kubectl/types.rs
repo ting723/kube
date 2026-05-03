@@ -64,6 +64,49 @@ pub struct ContainerStateTerminated {
     pub finished_at: Option<DateTime<Utc>>,
 }
 
+impl PodStatus {
+    /// 返回详细的状态描述，如果 Pod 处于 Pending 状态且有等待原因（如 ImagePullBackOff），
+    /// 则返回 "Pending (ImagePullBackOff)" 格式的状态。
+    pub fn detailed_phase(&self) -> String {
+        if self.phase == "Pending" {
+            if let Some(ref statuses) = self.container_statuses {
+                for cs in statuses {
+                    if let Some(ref waiting) = cs.state.waiting {
+                        if let Some(ref reason) = waiting.reason {
+                            return format!("{} ({})", self.phase, reason);
+                        }
+                    }
+                }
+            }
+        }
+        self.phase.clone()
+    }
+
+    /// 检查 Pod 是否处于错误状态（Failed、Error 或包含已知错误等待原因）。
+    pub fn is_error_state(&self) -> bool {
+        if self.phase == "Failed" || self.phase == "Error" {
+            return true;
+        }
+        if let Some(ref statuses) = self.container_statuses {
+            for cs in statuses {
+                if let Some(ref waiting) = cs.state.waiting {
+                    if let Some(ref reason) = waiting.reason {
+                        return matches!(
+                            reason.as_str(),
+                            "ImagePullBackOff"
+                                | "ErrImagePull"
+                                | "CrashLoopBackOff"
+                                | "CreateContainerConfigError"
+                                | "CreateContainerError"
+                        );
+                    }
+                }
+            }
+        }
+        false
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Service {
     pub name: String,

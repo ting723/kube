@@ -52,12 +52,17 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 Style::default().fg(Color::White)
             };
 
-            let status_color = match pod.status.phase.as_str() {
-                "Running" => Color::Green,
-                "Pending" => Color::Yellow,
-                "Failed" | "Error" => Color::Red,
-                "Succeeded" => Color::Blue,
-                _ => Color::Gray,
+            let status_text = pod.status.detailed_phase();
+            let status_color = if pod.status.is_error_state() {
+                Color::Red
+            } else {
+                match pod.status.phase.as_str() {
+                    "Running" => Color::Green,
+                    "Pending" => Color::Yellow,
+                    "Failed" | "Error" => Color::Red,
+                    "Succeeded" => Color::Blue,
+                    _ => Color::Gray,
+                }
             };
 
             let name_prefix = if is_marked { "✓ " } else { "  " };
@@ -65,7 +70,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             Row::new(vec![
                 Cell::from(format!("{}{}", name_prefix, pod.name)),
                 Cell::from(pod.ready.clone()),
-                Cell::from(pod.status.phase.clone()).style(Style::default().fg(status_color)),
+                Cell::from(status_text).style(Style::default().fg(status_color)),
                 Cell::from(pod.restarts.to_string()),
                 Cell::from(pod.age.clone()),
                 Cell::from(pod.node.clone().unwrap_or_else(|| "<none>".to_string())),

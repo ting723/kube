@@ -346,47 +346,116 @@ impl KubectlClient {
 
         let phase = status["phase"].as_str().unwrap_or("Unknown").to_string();
 
-        // Calculate ready containers
-        let container_statuses = status["containerStatuses"].as_array();
-        let ready_count = if let Some(statuses) = container_statuses {
-            statuses
-                .iter()
-                .filter(|status| status["ready"].as_bool().unwrap_or(false))
-                .count()
-        } else {
-            0
-        };
+        // Parse container statuses into typed Vec
+        let statuses_array = status["containerStatuses"].as_array();
+        let mut parsed_container_statuses = Vec::new();
+        if let Some(statuses) = statuses_array {
+            for cs in statuses {
+                let c_name = cs["name"].as_str().unwrap_or("").to_string();
+                let c_ready = cs["ready"].as_bool().unwrap_or(false);
+                let c_restart_count = cs["restartCount"].as_u64().unwrap_or(0) as u32;
 
+                let state_json = &cs["state"];
+                let running = state_json.get("running").map(|r| ContainerStateRunning {
+                    started_at: r["startedAt"].as_str().and_then(|s| {
+                        chrono::DateTime::parse_from_rfc3339(s)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                    }),
+                });
+                let waiting = state_json.get("waiting").map(|w| ContainerStateWaiting {
+                    reason: w["reason"].as_str().map(|s| s.to_string()),
+                    message: w["message"].as_str().map(|s| s.to_string()),
+                });
+                let terminated = state_json
+                    .get("terminated")
+                    .map(|t| ContainerStateTerminated {
+                        exit_code: t["exitCode"].as_i64().unwrap_or(0) as i32,
+                        reason: t["reason"].as_str().map(|s| s.to_string()),
+                        message: t["message"].as_str().map(|s| s.to_string()),
+                        started_at: t["startedAt"].as_str().and_then(|s| {
+                            chrono::DateTime::parse_from_rfc3339(s)
+                                .ok()
+                                .map(|dt| dt.with_timezone(&chrono::Utc))
+                        }),
+                        finished_at: t["finishedAt"].as_str().and_then(|s| {
+                            chrono::DateTime::parse_from_rfc3339(s)
+                                .ok()
+                                .map(|dt| dt.with_timezone(&chrono::Utc))
+                        }),
+                    });
+
+                parsed_container_statuses.push(ContainerStatus {
+                    name: c_name,
+                    ready: c_ready,
+                    restart_count: c_restart_count,
+                    state: ContainerState {
+                        running,
+                        waiting,
+                        terminated,
+                    },
+                });
+            }
+        }
+
+        // Calculate ready containers from parsed statuses
+        let ready_count = parsed_container_statuses
+            .iter()
+            .filter(|cs| cs.ready)
+            .count();
         let total_count = spec["containers"]
             .as_array()
             .map(|containers| containers.len())
             .unwrap_or(0);
-
         let ready = format!("{}/{}", ready_count, total_count);
 
-        // Calculate restart count
-        let restarts = if let Some(statuses) = container_statuses {
-            statuses
-                .iter()
-                .map(|status| status["restartCount"].as_u64().unwrap_or(0) as u32)
-                .sum()
-        } else {
-            0
-        };
+        // Calculate restart count from parsed statuses
+        let restarts: u32 = parsed_container_statuses
+            .iter()
+            .map(|cs| cs.restart_count)
+            .sum();
 
-        // Calculate age (simplified)
+        // Parse conditions
+        let mut parsed_conditions = Vec::new();
+        if let Some(conds) = status["conditions"].as_array() {
+            for cond in conds {
+                parsed_conditions.push(PodCondition {
+                    type_: cond["type"].as_str().unwrap_or("").to_string(),
+                    status: cond["status"].as_str().unwrap_or("").to_string(),
+                    last_transition_time: cond["lastTransitionTime"].as_str().and_then(|s| {
+                        chrono::DateTime::parse_from_rfc3339(s)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                    }),
+                    reason: cond["reason"].as_str().map(|s| s.to_string()),
+                    message: cond["message"].as_str().map(|s| s.to_string()),
+                });
+            }
+        }
+
         let age = self.calculate_age(metadata["creationTimestamp"].as_str());
 
         let node = spec["nodeName"].as_str().map(|s| s.to_string());
         let ip = status["podIP"].as_str().map(|s| s.to_string());
+
+        let container_statuses = if parsed_container_statuses.is_empty() {
+            None
+        } else {
+            Some(parsed_container_statuses)
+        };
+        let conditions = if parsed_conditions.is_empty() {
+            None
+        } else {
+            Some(parsed_conditions)
+        };
 
         Ok(Pod {
             name,
             namespace,
             status: PodStatus {
                 phase,
-                conditions: None,         // Simplified for now
-                container_statuses: None, // Simplified for now
+                conditions,
+                container_statuses,
             },
             ready,
             restarts,

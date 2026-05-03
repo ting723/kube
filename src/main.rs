@@ -376,8 +376,7 @@ async fn run_app(
                                         {
                                             pane.content = plogs;
                                             if app.logs_auto_scroll {
-                                                pane.scroll =
-                                                    pane.content.len().saturating_sub(1);
+                                                pane.scroll = pane.content.len().saturating_sub(1);
                                             }
                                         }
                                     }

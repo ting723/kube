@@ -69,6 +69,7 @@ pub struct LogPane {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PortForward {
     pub namespace: String,
     pub pod_name: String,
@@ -961,6 +962,9 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::kubectl::types::{
+        ContainerState, ContainerStateWaiting, ContainerStatus, PodStatus,
+    };
 
     #[test]
     fn test_default_app_state() {
@@ -1216,5 +1220,71 @@ mod tests {
         state.scroll_down();
         assert_eq!(state.log_panes[1].scroll, 2);
         assert_eq!(state.log_panes[0].scroll, 1);
+    }
+
+    #[test]
+    fn test_log_search_confirmed_flag() {
+        let mut state = AppState::default();
+        assert!(!state.log_search_confirmed);
+        state.log_search_confirmed = true;
+        assert!(state.log_search_confirmed);
+        state.log_search_confirmed = false;
+        assert!(!state.log_search_confirmed);
+    }
+
+    #[test]
+    fn test_pod_status_detailed_phase() {
+        let status = PodStatus {
+            phase: "Pending".into(),
+            conditions: None,
+            container_statuses: Some(vec![ContainerStatus {
+                name: "app".into(),
+                ready: false,
+                restart_count: 0,
+                state: ContainerState {
+                    running: None,
+                    waiting: Some(ContainerStateWaiting {
+                        reason: Some("ImagePullBackOff".into()),
+                        message: None,
+                    }),
+                    terminated: None,
+                },
+            }]),
+        };
+        assert_eq!(status.detailed_phase(), "Pending (ImagePullBackOff)");
+        assert!(status.is_error_state());
+    }
+
+    #[test]
+    fn test_pod_status_running_no_detail() {
+        let status = PodStatus {
+            phase: "Running".into(),
+            conditions: None,
+            container_statuses: None,
+        };
+        assert_eq!(status.detailed_phase(), "Running");
+        assert!(!status.is_error_state());
+    }
+
+    #[test]
+    fn test_pod_status_crash_loop() {
+        let status = PodStatus {
+            phase: "Running".into(),
+            conditions: None,
+            container_statuses: Some(vec![ContainerStatus {
+                name: "app".into(),
+                ready: false,
+                restart_count: 5,
+                state: ContainerState {
+                    running: None,
+                    waiting: Some(ContainerStateWaiting {
+                        reason: Some("CrashLoopBackOff".into()),
+                        message: None,
+                    }),
+                    terminated: None,
+                },
+            }]),
+        };
+        assert!(status.is_error_state());
     }
 }

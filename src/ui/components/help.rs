@@ -89,7 +89,11 @@ NOTE / 注意:
 "#;
 
     let paragraph = Paragraph::new(help_text)
-        .block(Block::default().borders(Borders::ALL).title("Help / 帮助 (? to close / 关闭)"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Help / 帮助 (? to close / 关闭)"),
+        )
         .style(Style::default().fg(Color::White))
         .wrap(Wrap { trim: true });
 
