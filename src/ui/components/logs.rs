@@ -92,10 +92,22 @@ fn render_log_pane(
     scroll: usize,
     title: &str,
     app: &AppState,
+    is_active: bool,
 ) {
+    let border_color = if is_active {
+        Color::Yellow
+    } else {
+        Color::DarkGray
+    };
+    let border_style = Style::default().fg(border_color);
     if logs.is_empty() {
         let widget = Paragraph::new("Loading logs...")
-            .block(Block::default().borders(Borders::ALL).title(title))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(title)
+                    .border_style(border_style),
+            )
             .style(Style::default().fg(Color::Gray));
         f.render_widget(widget, area);
         return;
@@ -127,7 +139,12 @@ fn render_log_pane(
         })
         .collect();
     let paragraph = Paragraph::new(content)
-        .block(Block::default().borders(Borders::ALL).title(title))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .border_style(border_style),
+        )
         .style(Style::default().fg(Color::White))
         .wrap(Wrap { trim: true })
         .scroll((scroll as u16, 0));
@@ -226,6 +243,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                     pane.scroll,
                     &log_pane_title(app, &pane.pod_name, is_active),
                     app,
+                    is_active,
                 );
             }
             render_pod_picker(f, area, app);
@@ -236,22 +254,15 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 .get(app.selected_pod_index)
                 .map(|p| p.name.as_str())
                 .unwrap_or("?");
-            let title = if app.language_chinese {
-                format!(
-                    "日志 - {}/{}{}",
-                    app.current_namespace,
-                    name,
-                    log_search_status(app)
-                )
-            } else {
-                format!(
-                    "Logs - {}/{}{}",
-                    app.current_namespace,
-                    name,
-                    log_search_status(app)
-                )
-            };
-            render_log_pane(f, area, &app.logs, app.logs_scroll, &title, app);
+            render_log_pane(
+                f,
+                area,
+                &app.logs,
+                app.logs_scroll,
+                &log_pane_title(app, name, true),
+                app,
+                true,
+            );
             render_pod_picker(f, area, app);
         }
     } else if app.split_log_mode && !app.log_panes.is_empty() {
@@ -273,6 +284,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
                 pane.scroll,
                 &log_pane_title(app, &pane.pod_name, is_active),
                 app,
+                is_active,
             );
         }
     } else {
@@ -281,21 +293,14 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             .get(app.selected_pod_index)
             .map(|p| p.name.as_str())
             .unwrap_or("?");
-        let title = if app.language_chinese {
-            format!(
-                "日志 - {}/{}{}",
-                app.current_namespace,
-                name,
-                log_search_status(app)
-            )
-        } else {
-            format!(
-                "Logs - {}/{}{}",
-                app.current_namespace,
-                name,
-                log_search_status(app)
-            )
-        };
-        render_log_pane(f, area, &app.logs, app.logs_scroll, &title, app);
+        render_log_pane(
+            f,
+            area,
+            &app.logs,
+            app.logs_scroll,
+            &log_pane_title(app, name, true),
+            app,
+            true,
+        );
     }
 }
