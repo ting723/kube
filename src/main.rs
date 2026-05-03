@@ -246,6 +246,20 @@ async fn run_app(
                         app.clear_current_command();
                     }
 
+                    // 执行待处理的删除等命令
+                    if !app.pending_commands.is_empty() {
+                        let commands: Vec<String> = app.pending_commands.drain(..).collect();
+                        for cmd in &commands {
+                            app.set_current_command(cmd);
+                            let _ = std::process::Command::new("sh")
+                                .arg("-c")
+                                .arg(cmd)
+                                .output();
+                        }
+                        app.clear_current_command();
+                        app.refresh_data();
+                    }
+
                     // Handle mode changes that require data loading
                     match app.mode {
                         AppMode::NamespaceList => {

@@ -91,14 +91,21 @@ impl PodStatus {
             for cs in statuses {
                 if let Some(ref waiting) = cs.state.waiting {
                     if let Some(ref reason) = waiting.reason {
-                        return matches!(
+                        if matches!(
                             reason.as_str(),
                             "ImagePullBackOff"
                                 | "ErrImagePull"
                                 | "CrashLoopBackOff"
                                 | "CreateContainerConfigError"
                                 | "CreateContainerError"
-                        );
+                        ) {
+                            return true;
+                        }
+                    }
+                }
+                if let Some(ref terminated) = cs.state.terminated {
+                    if terminated.exit_code != 0 {
+                        return true;
                     }
                 }
             }

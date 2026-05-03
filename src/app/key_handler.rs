@@ -685,15 +685,37 @@ impl AppState {
     }
 
     fn execute_confirm_action(&mut self) {
-        if let Some(ref action) = self.confirm_action {
+        if let Some(ref action) = self.confirm_action.clone() {
             match action {
                 ConfirmAction::DeletePod { namespace, name } => {
                     let cmd = format!("kubectl delete pod -n {} {}", namespace, name);
                     self.set_current_command(&cmd);
-                    // 这里将在主循环中实际执行删除操作
+                    self.pending_commands.push(cmd);
                 }
-                _ => {
-                    // 其他删除操作的实现
+                ConfirmAction::DeleteService { namespace, name } => {
+                    let cmd = format!("kubectl delete service -n {} {}", namespace, name);
+                    self.set_current_command(&cmd);
+                    self.pending_commands.push(cmd);
+                }
+                ConfirmAction::DeleteConfigMap { namespace, name } => {
+                    let cmd = format!("kubectl delete configmap -n {} {}", namespace, name);
+                    self.set_current_command(&cmd);
+                    self.pending_commands.push(cmd);
+                }
+                ConfirmAction::DeleteSecret { namespace, name } => {
+                    let cmd = format!("kubectl delete secret -n {} {}", namespace, name);
+                    self.set_current_command(&cmd);
+                    self.pending_commands.push(cmd);
+                }
+                ConfirmAction::DeleteBatch { items } => {
+                    for (namespace, resource_type, name) in items {
+                        let cmd = format!(
+                            "kubectl delete {} -n {} {}",
+                            resource_type, namespace, name
+                        );
+                        self.pending_commands.push(cmd);
+                    }
+                    self.set_current_command(&format!("批量删除 {} 个资源", items.len()));
                 }
             }
         }
