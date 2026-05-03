@@ -102,22 +102,27 @@ impl AppState {
                 }
             }
             KeyCode::Char('d') => {
-                if self.batch_mode && !self.marked_items.is_empty() && self.mode == AppMode::PodList
-                {
-                    let items: Vec<(String, String, String)> = self
-                        .marked_items
-                        .iter()
-                        .filter_map(|&i| self.pods.get(i))
-                        .map(|p| {
-                            (
-                                self.current_namespace.clone(),
-                                "pod".to_string(),
-                                p.name.clone(),
-                            )
-                        })
-                        .collect();
-                    self.confirm_action = Some(ConfirmAction::DeleteBatch { items });
-                    self.mode = AppMode::Confirm;
+                if self.batch_mode && !self.marked_items.is_empty() {
+                    if let Some(resource_type) = self.get_resource_type_for_mode() {
+                        let items: Vec<(String, String, String)> = self
+                            .marked_items
+                            .iter()
+                            .filter_map(|&i| {
+                                self.get_resource_name_for_index(i).map(|name| {
+                                    (
+                                        self.current_namespace.clone(),
+                                        resource_type.to_string(),
+                                        name,
+                                    )
+                                })
+                            })
+                            .collect();
+                        if !items.is_empty() {
+                            self.confirm_action =
+                                Some(ConfirmAction::DeleteBatch { items });
+                            self.mode = AppMode::Confirm;
+                        }
+                    }
                 }
             }
             KeyCode::Char('L') => self.handle_logs(), // L 查看日志
@@ -205,6 +210,36 @@ impl AppState {
             _ => {}
         }
         Ok(())
+    }
+
+    fn get_resource_type_for_mode(&self) -> Option<&str> {
+        match self.mode {
+            AppMode::PodList => Some("pod"),
+            AppMode::ServiceList => Some("service"),
+            AppMode::DeploymentList => Some("deployment"),
+            AppMode::JobList => Some("job"),
+            AppMode::DaemonSetList => Some("daemonset"),
+            AppMode::ConfigMapList => Some("configmap"),
+            AppMode::SecretList => Some("secret"),
+            AppMode::PVCList => Some("pvc"),
+            AppMode::PVList => Some("pv"),
+            _ => None,
+        }
+    }
+
+    fn get_resource_name_for_index(&self, idx: usize) -> Option<String> {
+        match self.mode {
+            AppMode::PodList => self.pods.get(idx).map(|r| r.name.clone()),
+            AppMode::ServiceList => self.services.get(idx).map(|r| r.name.clone()),
+            AppMode::DeploymentList => self.deployments.get(idx).map(|r| r.name.clone()),
+            AppMode::JobList => self.jobs.get(idx).map(|r| r.name.clone()),
+            AppMode::DaemonSetList => self.daemonsets.get(idx).map(|r| r.name.clone()),
+            AppMode::ConfigMapList => self.configmaps.get(idx).map(|r| r.name.clone()),
+            AppMode::SecretList => self.secrets.get(idx).map(|r| r.name.clone()),
+            AppMode::PVCList => self.pvcs.get(idx).map(|r| r.name.clone()),
+            AppMode::PVList => self.pvs.get(idx).map(|r| r.name.clone()),
+            _ => None,
+        }
     }
 
     // 搜索相关方法
