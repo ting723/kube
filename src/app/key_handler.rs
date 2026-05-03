@@ -1,4 +1,4 @@
-use super::state::{ActivePane, AppMode, AppState, ConfirmAction};
+use super::state::{AppMode, AppState, ConfirmAction, LogPane};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -24,6 +24,11 @@ impl AppState {
             return self.handle_split_pod_selection_key_event(key_event);
         }
 
+        // 处理集群 Context 选择模式
+        if self.context_selection_mode {
+            return self.handle_context_selection_key_event(key_event);
+        }
+
         match key_event.code {
             KeyCode::Char('q') => self.should_quit = true,
             KeyCode::Char('?') | KeyCode::F(1) => self.mode = AppMode::Help,
@@ -33,7 +38,9 @@ impl AppState {
                     return Ok(());
                 }
                 if self.split_log_mode {
+                    self.log_panes.clear();
                     self.split_log_mode = false;
+                    self.active_pane_index = 0;
                     return Ok(());
                 }
                 match self.mode {
@@ -61,9 +68,36 @@ impl AppState {
                 }
             }
             // 滚动操作（仅在 Logs、Describe、YamlView 和 TopView 模式下）
+            KeyCode::Char('W') => {
+                if self.mode == AppMode::Logs && self.split_log_mode {
+                    if !self.log_panes.is_empty() {
+                        self.log_panes.remove(self.active_pane_index);
+                        if self.log_panes.is_empty() {
+                            self.split_log_mode = false;
+                            self.active_pane_index = 0;
+                        } else if self.active_pane_index >= self.log_panes.len() {
+                            self.active_pane_index = self.log_panes.len() - 1;
+                        }
+                    }
+                }
+            }
             KeyCode::Char('V') => {
                 if self.mode == AppMode::Logs {
-                    self.enter_split_log_mode();
+                    if self.split_log_mode {
+                        // Add another pane
+                        self.enter_split_log_mode();
+                    } else {
+                        // Enter split mode: first pane = current pod
+                        if let Some(pod) = self.get_selected_pod() {
+                            self.log_panes.push(LogPane {
+                                pod_name: pod.name.clone(),
+                                content: self.logs.clone(),
+                                scroll: self.logs_scroll,
+                            });
+                            self.active_pane_index = 0;
+                            self.split_log_mode = true;
+                        }
+                    }
                 }
             }
             KeyCode::Char('j') => {
@@ -119,8 +153,7 @@ impl AppState {
                             })
                             .collect();
                         if !items.is_empty() {
-                            self.confirm_action =
-                                Some(ConfirmAction::DeleteBatch { items });
+                            self.confirm_action = Some(ConfirmAction::DeleteBatch { items });
                             self.mode = AppMode::Confirm;
                         }
                     }
@@ -188,11 +221,8 @@ impl AppState {
             }
             // Tab 切换面板
             KeyCode::Tab => {
-                if self.mode == AppMode::Logs && self.split_log_mode {
-                    self.active_pane = match self.active_pane {
-                        ActivePane::Left => ActivePane::Right,
-                        ActivePane::Right => ActivePane::Left,
-                    };
+                if self.mode == AppMode::Logs && self.split_log_mode && self.log_panes.len() > 1 {
+                    self.active_pane_index = (self.active_pane_index + 1) % self.log_panes.len();
                 } else {
                     self.switch_panel();
                 }
@@ -226,6 +256,51 @@ impl AppState {
             KeyCode::Char('I') | KeyCode::Char('i') => {
                 self.toggle_language();
             }
+            // C 键切换集群 Context
+            KeyCode::Char('C') => match self.mode {
+                AppMode::NamespaceList
+                | AppMode::PodList
+                | AppMode::ServiceList
+                | AppMode::NodeList
+                | AppMode::DeploymentList
+                | AppMode::JobList
+                | AppMode::DaemonSetList
+                | AppMode::PVCList
+                | AppMode::PVList
+                | AppMode::ConfigMapList
+                | AppMode::SecretList => {
+                    self.context_selection_mode = true;
+                    self.selected_context_index = self
+                        .available_contexts
+                        .iter()
+                        .position(|c| c == &self.current_context)
+                        .unwrap_or(0);
+                }
+                _ => {}
+            },
+            // P 键端口转发管理
+            KeyCode::Char('P') => self.handle_port_forward_key(),
+            // Ctrl+P 停止所有端口转发
+            KeyCode::Char('p') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.stop_all_port_forwards();
+            }
+            // > 键切换排序列
+            KeyCode::Char('>') => match self.mode {
+                AppMode::NamespaceList
+                | AppMode::PodList
+                | AppMode::ServiceList
+                | AppMode::NodeList
+                | AppMode::DeploymentList
+                | AppMode::JobList
+                | AppMode::DaemonSetList
+                | AppMode::PVCList
+                | AppMode::PVList
+                | AppMode::ConfigMapList
+                | AppMode::SecretList => {
+                    self.toggle_sort();
+                }
+                _ => {}
+            },
             _ => {}
         }
         Ok(())
@@ -403,23 +478,29 @@ impl AppState {
         if query.is_empty() {
             return;
         }
-        let log_set = if self.split_log_mode && self.active_pane == ActivePane::Right {
-            &self.split_log_content
+        let log_set = if self.split_log_mode {
+            self.log_panes
+                .get(self.active_pane_index)
+                .map(|p| &p.content)
         } else {
-            &self.logs
+            Some(&self.logs)
         };
-        for (i, line) in log_set.iter().enumerate() {
-            if line.to_lowercase().contains(&query) {
-                self.log_search_results.push(i);
+        if let Some(logs) = log_set {
+            for (i, line) in logs.iter().enumerate() {
+                if line.to_lowercase().contains(&query) {
+                    self.log_search_results.push(i);
+                }
             }
-        }
-        if !self.log_search_results.is_empty() {
-            self.current_log_search_index = 0;
-            let target = self.log_search_results[0];
-            if self.split_log_mode && self.active_pane == ActivePane::Right {
-                self.split_log_scroll = target;
-            } else {
-                self.logs_scroll = target;
+            if !self.log_search_results.is_empty() {
+                self.current_log_search_index = 0;
+                let target = self.log_search_results[0];
+                if self.split_log_mode {
+                    if let Some(pane) = self.log_panes.get_mut(self.active_pane_index) {
+                        pane.scroll = target;
+                    }
+                } else {
+                    self.logs_scroll = target;
+                }
             }
         }
     }
@@ -447,8 +528,10 @@ impl AppState {
 
     fn jump_to_log_search_result(&mut self) {
         if let Some(&line_num) = self.log_search_results.get(self.current_log_search_index) {
-            if self.split_log_mode && self.active_pane == ActivePane::Right {
-                self.split_log_scroll = line_num;
+            if self.split_log_mode {
+                if let Some(pane) = self.log_panes.get_mut(self.active_pane_index) {
+                    pane.scroll = line_num;
+                }
             } else {
                 self.logs_scroll = line_num;
             }
@@ -882,6 +965,45 @@ impl AppState {
         }
     }
 
+    pub fn handle_port_forward_key(&mut self) {
+        match self.mode {
+            AppMode::PodList => {
+                if self.show_port_forwards {
+                    self.show_port_forwards = false;
+                } else if self.batch_mode {
+                    self.show_port_forwards = true;
+                } else {
+                    self.request_port_forward();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn request_port_forward(&mut self) {
+        if let Some(pod) = self.get_selected_pod().cloned() {
+            let local_port = 8080 + self.active_port_forwards.len() as u16;
+            self.pending_port_forward = Some((self.current_namespace.clone(), pod.name.clone()));
+            let cmd = format!(
+                "kubectl port-forward -n {} {} {}:80",
+                self.current_namespace, pod.name, local_port,
+            );
+            self.set_current_command(&cmd);
+        }
+    }
+
+    pub fn stop_all_port_forwards(&mut self) {
+        for pf in &self.active_port_forwards {
+            if let Some(pid) = pf.child_pid {
+                let _ = std::process::Command::new("kill")
+                    .arg(pid.to_string())
+                    .spawn();
+            }
+        }
+        self.active_port_forwards.clear();
+        self.show_port_forwards = false;
+    }
+
     pub fn handle_yaml_view(&mut self) {
         match self.mode {
             AppMode::PodList
@@ -918,18 +1040,14 @@ impl AppState {
     }
 
     pub fn enter_split_log_mode(&mut self) {
-        if self.pods.len() < 2 {
+        if self.pods.is_empty() {
             return;
         }
-        // 进入 Pod 选择模式，让用户手动选择要对比的 Pod
         self.split_pod_selection_mode = true;
         self.split_pod_selection_index = 0;
     }
 
-    fn handle_split_pod_selection_key_event(
-        &mut self,
-        key_event: KeyEvent,
-    ) -> Result<()> {
+    fn handle_split_pod_selection_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         match key_event.code {
             KeyCode::Down | KeyCode::Char('j') => {
                 if self.split_pod_selection_index + 1 < self.pods.len() {
@@ -942,18 +1060,49 @@ impl AppState {
                 }
             }
             KeyCode::Enter => {
-                // 确认选择：激活分屏并加载选中 Pod 的日志
                 if let Some(pod) = self.pods.get(self.split_pod_selection_index) {
-                    self.split_log_pod_name = pod.name.clone();
+                    let already_exists = self.log_panes.iter().any(|p| p.pod_name == pod.name);
+                    if !already_exists {
+                        self.log_panes.push(LogPane {
+                            pod_name: pod.name.clone(),
+                            content: Vec::new(),
+                            scroll: 0,
+                        });
+                    }
+                    self.active_pane_index = self.log_panes.len().saturating_sub(1);
                 }
-                self.split_log_mode = true;
-                self.split_log_scroll = 0;
-                self.active_pane = ActivePane::Right;
+                self.split_log_mode = !self.log_panes.is_empty();
                 self.split_pod_selection_mode = false;
             }
             KeyCode::Esc => {
-                // 取消选择
                 self.split_pod_selection_mode = false;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_context_selection_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
+        match key_event.code {
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.selected_context_index + 1 < self.available_contexts.len() {
+                    self.selected_context_index += 1;
+                }
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.selected_context_index > 0 {
+                    self.selected_context_index -= 1;
+                }
+            }
+            KeyCode::Enter => {
+                self.context_selection_mode = false;
+                if let Some(ctx) = self.available_contexts.get(self.selected_context_index) {
+                    self.current_context = ctx.clone();
+                    self.pending_context_switch = Some(true);
+                }
+            }
+            KeyCode::Esc => {
+                self.context_selection_mode = false;
             }
             _ => {}
         }
@@ -1125,9 +1274,15 @@ mod tests {
         });
         let v_key = KeyEvent::new(KeyCode::Char('V'), KeyModifiers::NONE);
         state.handle_key_event(v_key).unwrap();
-        // V 键进入 Pod 选择模式，而非直接激活分屏
+        // 第一次按 V: 用当前选中的 Pod (pod1) 创建第一个面板
+        assert!(!state.split_pod_selection_mode);
+        assert!(state.split_log_mode);
+        assert_eq!(state.log_panes.len(), 1);
+        assert_eq!(state.log_panes[0].pod_name, "pod1");
+        assert_eq!(state.active_pane_index, 0);
+        // 再按一次 V: 进入 Pod 选择模式
+        state.handle_key_event(v_key).unwrap();
         assert!(state.split_pod_selection_mode);
-        assert!(!state.split_log_mode);
         // 导航到第二个 pod 并确认选择
         let down = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
         state.handle_key_event(down).unwrap();
@@ -1137,6 +1292,8 @@ mod tests {
         state.handle_key_event(enter).unwrap();
         assert!(state.split_log_mode);
         assert!(!state.split_pod_selection_mode);
-        assert_eq!(state.split_log_pod_name, "pod2");
+        assert_eq!(state.log_panes.len(), 2);
+        assert_eq!(state.log_panes[1].pod_name, "pod2");
+        assert_eq!(state.active_pane_index, 1);
     }
 }

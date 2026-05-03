@@ -384,6 +384,19 @@ pub fn get_pv_yaml(pv_name: &str) -> Result<String> {
     execute_kubectl(&["get", "pv", pv_name, "-o", "yaml"])
 }
 
+// Context 相关命令
+pub fn get_contexts() -> Result<String> {
+    execute_kubectl(&["config", "get-contexts", "-o", "name"])
+}
+
+pub fn get_current_context() -> Result<String> {
+    execute_kubectl(&["config", "current-context"])
+}
+
+pub fn use_context(context: &str) -> Result<String> {
+    execute_kubectl(&["config", "use-context", context])
+}
+
 // 资源监控相关命令
 pub fn get_top_pods(namespace: &str) -> Result<String> {
     execute_kubectl(&["top", "pods", "-n", namespace, "--no-headers"]).map_err(|e| {

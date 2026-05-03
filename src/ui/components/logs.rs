@@ -1,23 +1,27 @@
-use crate::app::state::{ActivePane, AppState};
+use crate::app::state::AppState;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
+    widgets::{
+        Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
+    },
 };
 
-fn log_pane_title(app: &AppState, pod_name: &str, pane: &ActivePane) -> String {
-    let marker = match pane {
-        ActivePane::Left if app.active_pane == ActivePane::Left => "◉",
-        ActivePane::Right if app.active_pane == ActivePane::Right => "◉",
-        _ => " ",
-    };
+fn log_pane_title(app: &AppState, pod_name: &str, is_active: bool) -> String {
+    let marker = if is_active { "◉" } else { " " };
     let status = log_search_status(app);
     if app.language_chinese {
-        format!("{} 日志 - {}/{}{}", marker, app.current_namespace, pod_name, status)
+        format!(
+            "{} 日志 - {}/{}{}",
+            marker, app.current_namespace, pod_name, status
+        )
     } else {
-        format!("{} Logs - {}/{}{}", marker, app.current_namespace, pod_name, status)
+        format!(
+            "{} Logs - {}/{}{}",
+            marker, app.current_namespace, pod_name, status
+        )
     }
 }
 
@@ -32,7 +36,10 @@ fn log_search_status(app: &AppState) -> String {
         if app.language_chinese {
             format!(" [搜索: {} ({}/{})]", app.log_search_query, current, total)
         } else {
-            format!(" [Search: {} ({}/{})]", app.log_search_query, current, total)
+            format!(
+                " [Search: {} ({}/{})]",
+                app.log_search_query, current, total
+            )
         }
     } else if app.log_search_mode && app.log_search_query.is_empty() {
         if app.language_chinese {
@@ -54,7 +61,14 @@ fn log_search_status(app: &AppState) -> String {
     }
 }
 
-fn render_log_pane(f: &mut Frame, area: Rect, logs: &[String], scroll: usize, title: &str, app: &AppState) {
+fn render_log_pane(
+    f: &mut Frame,
+    area: Rect,
+    logs: &[String],
+    scroll: usize,
+    title: &str,
+    app: &AppState,
+) {
     if logs.is_empty() {
         let widget = Paragraph::new("Loading logs...")
             .block(Block::default().borders(Borders::ALL).title(title))
@@ -149,12 +163,17 @@ fn render_pod_picker(f: &mut Frame, area: Rect, app: &AppState) {
     };
 
     let paragraph = Paragraph::new(pod_names.join("\n"))
-        .block(Block::default().borders(Borders::ALL).title(title).style(
-            Style::default().fg(Color::Yellow),
-        ))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .style(Style::default().fg(Color::Yellow)),
+        )
         .style(Style::default().fg(Color::White))
         .scroll((
-            app.split_pod_selection_index.saturating_sub(picker_area.height.saturating_sub(3) as usize / 2) as u16,
+            app.split_pod_selection_index
+                .saturating_sub(picker_area.height.saturating_sub(3) as usize / 2)
+                as u16,
             0,
         ));
 
@@ -170,39 +189,44 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             .map(|p| p.name.as_str())
             .unwrap_or("?");
         let title = if app.language_chinese {
-            format!("日志 - {}/{}{}", app.current_namespace, name, log_search_status(app))
+            format!(
+                "日志 - {}/{}{}",
+                app.current_namespace,
+                name,
+                log_search_status(app)
+            )
         } else {
-            format!("Logs - {}/{}{}", app.current_namespace, name, log_search_status(app))
+            format!(
+                "Logs - {}/{}{}",
+                app.current_namespace,
+                name,
+                log_search_status(app)
+            )
         };
         render_log_pane(f, area, &app.logs, app.logs_scroll, &title, app);
         // 叠加 Pod 选择弹窗
         render_pod_picker(f, area, app);
-    } else if app.split_log_mode {
+    } else if app.split_log_mode && !app.log_panes.is_empty() {
+        let count = app.log_panes.len();
+        let constraints: Vec<Constraint> = (0..count)
+            .map(|_| Constraint::Percentage(100 / count as u16))
+            .collect();
         let panes = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .constraints(constraints)
             .split(area);
-        let left_name = app
-            .pods
-            .get(app.selected_pod_index)
-            .map(|p| p.name.as_str())
-            .unwrap_or("?");
-        render_log_pane(
-            f,
-            panes[0],
-            &app.logs,
-            app.logs_scroll,
-            &log_pane_title(app, left_name, &ActivePane::Left),
-            app,
-        );
-        render_log_pane(
-            f,
-            panes[1],
-            &app.split_log_content,
-            app.split_log_scroll,
-            &log_pane_title(app, &app.split_log_pod_name, &ActivePane::Right),
-            app,
-        );
+
+        for (i, pane) in app.log_panes.iter().enumerate() {
+            let is_active = i == app.active_pane_index;
+            render_log_pane(
+                f,
+                panes[i],
+                &pane.content,
+                pane.scroll,
+                &log_pane_title(app, &pane.pod_name, is_active),
+                app,
+            );
+        }
     } else {
         let name = app
             .pods
@@ -210,9 +234,19 @@ pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
             .map(|p| p.name.as_str())
             .unwrap_or("?");
         let title = if app.language_chinese {
-            format!("日志 - {}/{}{}", app.current_namespace, name, log_search_status(app))
+            format!(
+                "日志 - {}/{}{}",
+                app.current_namespace,
+                name,
+                log_search_status(app)
+            )
         } else {
-            format!("Logs - {}/{}{}", app.current_namespace, name, log_search_status(app))
+            format!(
+                "Logs - {}/{}{}",
+                app.current_namespace,
+                name,
+                log_search_status(app)
+            )
         };
         render_log_pane(f, area, &app.logs, app.logs_scroll, &title, app);
     }

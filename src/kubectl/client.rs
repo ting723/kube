@@ -33,6 +33,24 @@ impl KubectlClient {
         commands::check_kubectl_available()
     }
 
+    pub async fn get_contexts(&self) -> Result<Vec<String>> {
+        let output = commands::get_contexts()?;
+        Ok(output
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect())
+    }
+
+    pub async fn get_current_context(&self) -> Result<String> {
+        let output = commands::get_current_context()?;
+        Ok(output.trim().to_string())
+    }
+
+    pub fn use_context(&self, context: &str) -> Result<String> {
+        commands::use_context(context)
+    }
+
     pub async fn get_namespaces(&self) -> Result<Vec<Namespace>> {
         let namespaces = commands::get_namespaces()?;
 

@@ -4,6 +4,7 @@ mod kubectl;
 mod ui;
 
 use anyhow::Result;
+use app::state::PortForward;
 use app::{AppMode, AppState};
 use crossterm::{
     event::Event,
@@ -81,8 +82,15 @@ async fn main() -> Result<()> {
 }
 
 async fn load_initial_data(app: &mut AppState, client: &KubectlClient) -> Result<()> {
-    // 显示cluster-info命令
-    app.set_current_command("kubectl cluster-info");
+    // Load kubeconfig contexts
+    app.set_current_command("kubectl config get-contexts");
+    if let Ok(contexts) = client.get_contexts().await {
+        app.available_contexts = contexts;
+    }
+    if let Ok(current) = client.get_current_context().await {
+        app.current_context = current;
+    }
+    app.clear_current_command();
 
     // Load namespaces
     app.set_current_command("kubectl get namespaces");
@@ -91,17 +99,20 @@ async fn load_initial_data(app: &mut AppState, client: &KubectlClient) -> Result
         if !app.namespaces.is_empty() {
             app.current_namespace = app.namespaces[0].clone();
         }
+        app.sort_namespaces();
     }
     app.clear_current_command();
 
     // Load pods for default namespace
     if let Ok(pods) = client.get_pods(&app.current_namespace).await {
         app.pods = pods;
+        app.sort_pods();
     }
 
     // Load services for default namespace
     if let Ok(services) = client.get_services(&app.current_namespace).await {
         app.services = services;
+        app.sort_services();
     }
 
     app.refresh_data();
@@ -146,6 +157,40 @@ async fn run_app(
                     // 管理鼠标捕获状态（在键盘事件处理后检查模式变化或M键切换）
                     manage_mouse_capture(terminal, app).await?;
 
+                    // 处理待执行的集群 Context 切换
+                    if app.pending_context_switch.take().unwrap_or(false) {
+                        let target_context = app.current_context.clone();
+                        app.set_current_command(&format!(
+                            "kubectl config use-context {}",
+                            target_context
+                        ));
+                        if let Err(e) = client.use_context(&target_context) {
+                            eprintln!("Failed to switch context: {}", e);
+                        }
+                        app.clear_current_command();
+
+                        // 清除所有数据并重新加载
+                        app.pods.clear();
+                        app.services.clear();
+                        app.deployments.clear();
+                        app.jobs.clear();
+                        app.daemonsets.clear();
+                        app.pvcs.clear();
+                        app.pvs.clear();
+                        app.configmaps.clear();
+                        app.secrets.clear();
+                        app.logs.clear();
+                        app.describe_content.clear();
+                        app.reset_scroll();
+
+                        // 切换回命名空间列表，强制重新加载
+                        app.mode = AppMode::NamespaceList;
+                        app.previous_mode = AppMode::NamespaceList;
+                        app.selected_namespace_index = 0;
+                        app.namespaces.clear();
+                        app.current_namespace.clear();
+                    }
+
                     // 处理待执行的exec命令
                     if let Some(exec_cmd) = app.pending_exec.take() {
                         execute_external_command(&exec_cmd, terminal).await?;
@@ -158,10 +203,47 @@ async fn run_app(
                         // 只增量刷新Pod列表
                         if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                             app.pods = pods;
+                            app.sort_pods();
                         }
 
                         app.refresh_data();
                         terminal.draw(|f| ui::render_ui(f, app))?;
+                    }
+
+                    // 处理待执行的端口转发
+                    if let Some((ns, pod_name)) = app.pending_port_forward.take() {
+                        let local_port = 8080 + app.active_port_forwards.len() as u16;
+                        let target_port = 80u16;
+
+                        app.set_current_command(&format!(
+                            "kubectl port-forward -n {} {} {}:{}",
+                            ns, pod_name, local_port, target_port
+                        ));
+
+                        let child = std::process::Command::new("kubectl")
+                            .args(&[
+                                "port-forward",
+                                "-n",
+                                &ns,
+                                &pod_name,
+                                &format!("{}:{}", local_port, target_port),
+                            ])
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .spawn()
+                            .ok();
+
+                        let pid = child.as_ref().map(|c| c.id());
+
+                        app.active_port_forwards.push(PortForward {
+                            namespace: ns,
+                            pod_name,
+                            local_port,
+                            target_port,
+                            child_pid: pid,
+                        });
+
+                        app.clear_current_command();
                     }
 
                     // Handle mode changes that require data loading
@@ -177,6 +259,7 @@ async fn run_app(
                                     {
                                         app.current_namespace = app.namespaces[0].clone();
                                     }
+                                    app.sort_namespaces();
                                     app.refresh_data();
                                 }
                                 app.clear_current_command();
@@ -186,6 +269,7 @@ async fn run_app(
                             if app.pods.is_empty() || app.should_refresh() {
                                 if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                                     app.pods = pods;
+                                    app.sort_pods();
                                     app.refresh_data();
                                 }
                             }
@@ -196,6 +280,7 @@ async fn run_app(
                                     client.get_services(&app.current_namespace).await
                                 {
                                     app.services = services;
+                                    app.sort_services();
                                     app.refresh_data();
                                 }
                             }
@@ -283,14 +368,13 @@ async fn run_app(
                                         }
                                     }
                                     app.clear_current_command();
-                                    // Load split pane logs if in split mode
-                                    if app.split_log_mode && !app.split_log_pod_name.is_empty() {
-                                        let split_ns = app.current_namespace.clone();
-                                        let split_name = app.split_log_pod_name.clone();
-                                        if let Ok(split_logs) =
-                                            client.get_pod_logs(&split_ns, &split_name, 100).await
+                                    // Load logs for all panes
+                                    for pane in &mut app.log_panes {
+                                        let pn = pane.pod_name.clone();
+                                        let ns = app.current_namespace.clone();
+                                        if let Ok(plogs) = client.get_pod_logs(&ns, &pn, 100).await
                                         {
-                                            app.split_log_content = split_logs;
+                                            pane.content = plogs;
                                         }
                                     }
                                 }
@@ -563,6 +647,7 @@ async fn run_app(
                         if !app.namespaces.is_empty() && app.current_namespace.is_empty() {
                             app.current_namespace = app.namespaces[0].clone();
                         }
+                        app.sort_namespaces();
                     }
                     app.clear_current_command();
                 }
@@ -573,6 +658,7 @@ async fn run_app(
                     ));
                     if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                         app.pods = pods;
+                        app.sort_pods();
                     }
                     app.clear_current_command();
                 }
@@ -583,6 +669,7 @@ async fn run_app(
                     ));
                     if let Ok(services) = client.get_services(&app.current_namespace).await {
                         app.services = services;
+                        app.sort_services();
                     }
                     app.clear_current_command();
                 }
@@ -665,14 +752,12 @@ async fn run_app(
                                 app.logs_scroll = app.logs.len().saturating_sub(1);
                             }
                         }
-                        // Load split pane logs
-                        if app.split_log_mode && !app.split_log_pod_name.is_empty() {
-                            let split_ns = app.current_namespace.clone();
-                            let split_name = app.split_log_pod_name.clone();
-                            if let Ok(split_logs) =
-                                client.get_pod_logs(&split_ns, &split_name, 100).await
-                            {
-                                app.split_log_content = split_logs;
+                        // Load logs for all panes
+                        for pane in &mut app.log_panes {
+                            let pn = pane.pod_name.clone();
+                            let ns = app.current_namespace.clone();
+                            if let Ok(plogs) = client.get_pod_logs(&ns, &pn, 100).await {
+                                pane.content = plogs;
                             }
                         }
                     }
@@ -699,6 +784,14 @@ async fn run_app(
                     }
                 }
                 app.clear_current_command();
+            }
+            // Load logs for all panes
+            for pane in &mut app.log_panes {
+                let pn = pane.pod_name.clone();
+                let ns = app.current_namespace.clone();
+                if let Ok(plogs) = client.get_pod_logs(&ns, &pn, 100).await {
+                    pane.content = plogs;
+                }
             }
             app.refresh_logs();
         }
@@ -763,8 +856,7 @@ async fn run_app(
                 }
                 AppMode::JobList => {
                     if let Some(job) = app.get_selected_job() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), job.name.clone());
+                        let (ns, name) = (app.current_namespace.clone(), job.name.clone());
                         if let Ok(d) = client.describe_job(&ns, &name).await {
                             app.set_describe_content(d);
                         }
@@ -772,8 +864,7 @@ async fn run_app(
                 }
                 AppMode::DaemonSetList => {
                     if let Some(ds) = app.get_selected_daemonset() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), ds.name.clone());
+                        let (ns, name) = (app.current_namespace.clone(), ds.name.clone());
                         if let Ok(d) = client.describe_daemonset(&ns, &name).await {
                             app.set_describe_content(d);
                         }
@@ -781,8 +872,7 @@ async fn run_app(
                 }
                 AppMode::ConfigMapList => {
                     if let Some(cm) = app.get_selected_configmap() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), cm.name.clone());
+                        let (ns, name) = (app.current_namespace.clone(), cm.name.clone());
                         if let Ok(d) = client.describe_configmap(&ns, &name).await {
                             app.set_describe_content(d);
                         }
@@ -790,8 +880,7 @@ async fn run_app(
                 }
                 AppMode::SecretList => {
                     if let Some(s) = app.get_selected_secret() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), s.name.clone());
+                        let (ns, name) = (app.current_namespace.clone(), s.name.clone());
                         if let Ok(d) = client.describe_secret(&ns, &name).await {
                             app.set_describe_content(d);
                         }
@@ -799,8 +888,7 @@ async fn run_app(
                 }
                 AppMode::PVCList => {
                     if let Some(pvc) = app.get_selected_pvc() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), pvc.name.clone());
+                        let (ns, name) = (app.current_namespace.clone(), pvc.name.clone());
                         if let Ok(d) = client.describe_pvc(&ns, &name).await {
                             app.set_describe_content(d);
                         }
@@ -863,19 +951,15 @@ async fn run_app(
                 }
                 AppMode::DeploymentList => {
                     if let Some(deploy) = app.get_selected_deployment() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), deploy.name.clone());
-                        if let Ok(yaml) =
-                            client.get_yaml("deployment", Some(&ns), &name).await
-                        {
+                        let (ns, name) = (app.current_namespace.clone(), deploy.name.clone());
+                        if let Ok(yaml) = client.get_yaml("deployment", Some(&ns), &name).await {
                             app.set_yaml_content(yaml);
                         }
                     }
                 }
                 AppMode::JobList => {
                     if let Some(job) = app.get_selected_job() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), job.name.clone());
+                        let (ns, name) = (app.current_namespace.clone(), job.name.clone());
                         if let Ok(yaml) = client.get_yaml("job", Some(&ns), &name).await {
                             app.set_yaml_content(yaml);
                         }
@@ -883,41 +967,31 @@ async fn run_app(
                 }
                 AppMode::DaemonSetList => {
                     if let Some(ds) = app.get_selected_daemonset() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), ds.name.clone());
-                        if let Ok(yaml) =
-                            client.get_yaml("daemonset", Some(&ns), &name).await
-                        {
+                        let (ns, name) = (app.current_namespace.clone(), ds.name.clone());
+                        if let Ok(yaml) = client.get_yaml("daemonset", Some(&ns), &name).await {
                             app.set_yaml_content(yaml);
                         }
                     }
                 }
                 AppMode::ConfigMapList => {
                     if let Some(cm) = app.get_selected_configmap() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), cm.name.clone());
-                        if let Ok(yaml) =
-                            client.get_yaml("configmap", Some(&ns), &name).await
-                        {
+                        let (ns, name) = (app.current_namespace.clone(), cm.name.clone());
+                        if let Ok(yaml) = client.get_yaml("configmap", Some(&ns), &name).await {
                             app.set_yaml_content(yaml);
                         }
                     }
                 }
                 AppMode::SecretList => {
                     if let Some(s) = app.get_selected_secret() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), s.name.clone());
-                        if let Ok(yaml) =
-                            client.get_yaml("secret", Some(&ns), &name).await
-                        {
+                        let (ns, name) = (app.current_namespace.clone(), s.name.clone());
+                        if let Ok(yaml) = client.get_yaml("secret", Some(&ns), &name).await {
                             app.set_yaml_content(yaml);
                         }
                     }
                 }
                 AppMode::PVCList => {
                     if let Some(pvc) = app.get_selected_pvc() {
-                        let (ns, name) =
-                            (app.current_namespace.clone(), pvc.name.clone());
+                        let (ns, name) = (app.current_namespace.clone(), pvc.name.clone());
                         if let Ok(yaml) = client.get_yaml("pvc", Some(&ns), &name).await {
                             app.set_yaml_content(yaml);
                         }
@@ -960,6 +1034,7 @@ async fn run_app(
                         if !app.namespaces.is_empty() && app.current_namespace.is_empty() {
                             app.current_namespace = app.namespaces[0].clone();
                         }
+                        app.sort_namespaces();
                     }
                     app.clear_current_command();
                 }
@@ -970,6 +1045,7 @@ async fn run_app(
                     ));
                     if let Ok(pods) = client.get_pods(&app.current_namespace).await {
                         app.pods = pods;
+                        app.sort_pods();
                     }
                     app.clear_current_command();
                 }
@@ -980,6 +1056,7 @@ async fn run_app(
                     ));
                     if let Ok(services) = client.get_services(&app.current_namespace).await {
                         app.services = services;
+                        app.sort_services();
                     }
                     app.clear_current_command();
                 }
@@ -1063,6 +1140,15 @@ async fn run_app(
         }
 
         if app.should_quit {
+            // Kill all active port-forwards before quitting
+            for pf in &app.active_port_forwards {
+                if let Some(pid) = pf.child_pid {
+                    let _ = std::process::Command::new("kill")
+                        .arg(pid.to_string())
+                        .spawn();
+                }
+            }
+            app.active_port_forwards.clear();
             break;
         }
     }

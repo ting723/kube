@@ -5,7 +5,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Paragraph, Tabs},
+    widgets::{Block, Borders, Clear, Paragraph, Tabs},
 };
 
 use crate::app::state::{AppMode, AppState};
@@ -135,6 +135,62 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::TopView => components::top_view::render(f, area, app),
         AppMode::CommandHistory => {}
     }
+
+    // 如果有 Context 选择弹窗，在内容之上叠加渲染
+    if app.context_selection_mode {
+        render_context_picker(f, area, app);
+    }
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
+    let popup_width = area.width * percent_x / 100;
+    let popup_height = area.height * percent_y / 100;
+    let x = area.x + (area.width.saturating_sub(popup_width)) / 2;
+    let y = area.y + (area.height.saturating_sub(popup_height)) / 2;
+    Rect::new(x, y, popup_width, popup_height)
+}
+
+fn render_context_picker(f: &mut Frame, area: Rect, app: &AppState) {
+    let picker_area = centered_rect(60, 70, area);
+    f.render_widget(Clear, picker_area);
+
+    let context_lines: Vec<String> = app
+        .available_contexts
+        .iter()
+        .enumerate()
+        .map(|(i, ctx)| {
+            let marker = if i == app.selected_context_index {
+                "▶ "
+            } else {
+                "  "
+            };
+            format!("{}{}", marker, ctx)
+        })
+        .collect();
+
+    let title = if app.language_chinese {
+        "选择 kubeconfig Context (j/k:导航 Enter:切换 Esc:取消)"
+    } else {
+        "Select kubeconfig Context (j/k:nav Enter:switch Esc:cancel)"
+    };
+
+    let content = context_lines.join("\n");
+    let paragraph = Paragraph::new(content)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .style(Style::default().fg(Color::Yellow)),
+        )
+        .style(Style::default().fg(Color::White))
+        .scroll((
+            app.selected_context_index
+                .saturating_sub(picker_area.height.saturating_sub(3) as usize / 2)
+                as u16,
+            0,
+        ));
+
+    f.render_widget(paragraph, picker_area);
 }
 
 fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
@@ -148,7 +204,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k ↑↓ 导航 • Enter 选择 • h/l ←→ 切换 • Tab/Shift+Tab 标签页 • / 搜索 • I 切换语言 • q 退出 • ? 帮助".to_string()
+                    "j/k ↑↓ 导航 • Enter 选择 • h/l ←→ 切换 • Tab/Shift+Tab 标签页 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • ? 帮助".to_string()
                 }
             }
             AppMode::PodList => {
@@ -158,7 +214,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • T 监控 • L 日志 • D 删除 • E 进入 • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • T 监控 • L 日志 • P 端口转发 • D 删除 • E 进入 • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::ServiceList => {
@@ -168,7 +224,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::NodeList => {
@@ -178,7 +234,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::DeploymentList => {
@@ -188,7 +244,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::JobList => {
@@ -198,7 +254,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::DaemonSetList => {
@@ -208,7 +264,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::PVCList => {
@@ -218,7 +274,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::PVList => {
@@ -228,7 +284,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::ConfigMapList => {
@@ -238,7 +294,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::SecretList => {
@@ -248,7 +304,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • I 切换语言 • q 退出 • R 刷新".to_string()
+                    "j/k 导航 • Space 详情 • Y YAML • D 删除 • v 批量 • / 搜索 • > 排序 • C 切换集群 • I 切换语言 • q 退出 • R 刷新".to_string()
                 }
             }
             AppMode::Logs => {
@@ -292,7 +348,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k ↑↓ Navigate • Enter Select • h/l ←→ Switch • Tab/Shift+Tab Tabs • / Search • I Language • q Quit • ? Help".to_string()
+                    "j/k ↑↓ Navigate • Enter Select • h/l ←→ Switch • Tab/Shift+Tab Tabs • / Search • > Sort • C Switch Cluster • I Language • q Quit • ? Help".to_string()
                 }
             }
             AppMode::PodList => {
@@ -302,7 +358,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • T Top • L Logs • D Delete • E Exec • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • T Top • L Logs • P Port-Forward • D Delete • E Exec • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::ServiceList => {
@@ -312,7 +368,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::NodeList => {
@@ -322,7 +378,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::DeploymentList => {
@@ -332,7 +388,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::JobList => {
@@ -342,7 +398,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::DaemonSetList => {
@@ -352,7 +408,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::PVCList => {
@@ -362,7 +418,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::PVList => {
@@ -372,7 +428,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::ConfigMapList => {
@@ -382,7 +438,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::SecretList => {
@@ -392,7 +448,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &AppState) {
                         app.marked_items.len()
                     )
                 } else {
-                    "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • I Language • q Quit • R Refresh".to_string()
+                    "j/k Navigate • Space Describe • Y YAML • D Delete • v Batch • / Search • > Sort • C Switch Cluster • I Language • q Quit • R Refresh".to_string()
                 }
             }
             AppMode::Logs => {
@@ -617,14 +673,47 @@ fn render_command_line(f: &mut Frame, area: Rect, app: &AppState) {
         }
     };
 
+    // 构建端口转发显示
+    let pf_display = if !app.active_port_forwards.is_empty() {
+        if app.show_port_forwards {
+            let items: Vec<String> = app
+                .active_port_forwards
+                .iter()
+                .map(|pf| {
+                    format!(
+                        "localhost:{} -> {}/{}:{}",
+                        pf.local_port, pf.namespace, pf.pod_name, pf.target_port
+                    )
+                })
+                .collect();
+            format!("Port-Forwards: {} | ", items.join(", "))
+        } else {
+            format!("[{} port-forward(s)] ", app.active_port_forwards.len())
+        }
+    } else if app.show_port_forwards {
+        "No active port-forwards | ".to_string()
+    } else {
+        String::new()
+    };
+
+    // 添加 Context 显示
+    let context_display = if !app.current_context.is_empty() {
+        format!(" [Context: {}]", app.current_context)
+    } else {
+        String::new()
+    };
+
     // 添加刷新状态显示
     let status_text = if !app.refresh_status_text.is_empty() {
         format!(
-            "{} - Press 'R' to refresh {}",
-            command_text, app.refresh_status_text
+            "{}{}{} - Press 'R' to refresh {}",
+            pf_display, command_text, context_display, app.refresh_status_text
         )
     } else {
-        format!("{} - Press 'R' to refresh", command_text)
+        format!(
+            "{}{}{} - Press 'R' to refresh",
+            pf_display, command_text, context_display
+        )
     };
 
     let command_line = Paragraph::new(status_text).style(Style::default().fg(Color::Cyan));
