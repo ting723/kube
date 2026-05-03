@@ -165,6 +165,7 @@ pub struct AppState {
     pub log_search_results: Vec<usize>,
     pub current_log_search_index: usize,
     pub log_search_mode: bool,
+    pub log_search_confirmed: bool,
     #[allow(dead_code)]
     pub streaming_logs: bool,
     #[allow(dead_code)]
@@ -265,6 +266,7 @@ impl Default for AppState {
             log_search_results: Vec::new(),
             current_log_search_index: 0,
             log_search_mode: false,
+            log_search_confirmed: false,
             streaming_logs: false,
             command_history: Vec::new(),
 

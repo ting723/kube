@@ -446,6 +446,7 @@ impl AppState {
         self.log_search_query.clear();
         self.log_search_results.clear();
         self.current_log_search_index = 0;
+        self.log_search_confirmed = false;
     }
 
     fn handle_log_search_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
@@ -454,22 +455,37 @@ impl AppState {
                 self.log_search_mode = false;
                 self.log_search_query.clear();
                 self.log_search_results.clear();
+                self.log_search_confirmed = false;
             }
             KeyCode::Enter => {
-                // Keep log_search_mode active for n/N navigation
+                self.log_search_confirmed = true;
             }
             KeyCode::Char('n') => {
-                self.log_search_next();
+                if self.log_search_confirmed && !self.log_search_results.is_empty() {
+                    self.log_search_next();
+                } else {
+                    self.log_search_query.push('n');
+                    self.log_search_confirmed = false;
+                    self.perform_log_search();
+                }
             }
             KeyCode::Char('N') => {
-                self.log_search_previous();
+                if self.log_search_confirmed && !self.log_search_results.is_empty() {
+                    self.log_search_previous();
+                } else {
+                    self.log_search_query.push('N');
+                    self.log_search_confirmed = false;
+                    self.perform_log_search();
+                }
             }
             KeyCode::Backspace => {
                 self.log_search_query.pop();
+                self.log_search_confirmed = false;
                 self.perform_log_search();
             }
             KeyCode::Char(c) => {
                 self.log_search_query.push(c);
+                self.log_search_confirmed = false;
                 self.perform_log_search();
             }
             _ => {}
@@ -976,6 +992,7 @@ impl AppState {
                 self.log_search_query.clear();
                 self.log_search_results.clear();
                 self.current_log_search_index = 0;
+                self.log_search_confirmed = false;
                 self.previous_mode = self.mode.clone();
                 self.reset_scroll();
                 self.logs_auto_scroll = true;
@@ -1385,9 +1402,20 @@ mod tests {
             state.handle_key_event(k).unwrap();
         }
         assert_eq!(state.log_search_results.len(), 2);
+        // After typing query, n should be appended to query (not navigate)
+        let n_key_before_enter = KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE);
+        state.handle_key_event(n_key_before_enter).unwrap();
+        assert!(state.log_search_query.contains('n'));
+        assert_eq!(state.current_log_search_index, 0);
+        // Backspace to remove 'n' and restore query to "error"
+        let backspace = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
+        state.handle_key_event(backspace).unwrap();
+        // Press Enter to confirm search
         let enter = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
         state.handle_key_event(enter).unwrap();
         assert!(state.log_search_mode);
+        assert!(state.log_search_confirmed);
+        // Now n should navigate to next match
         let n_key = KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE);
         state.handle_key_event(n_key).unwrap();
         assert_eq!(state.current_log_search_index, 1);
