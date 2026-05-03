@@ -195,30 +195,54 @@ fn render_pod_picker(f: &mut Frame, area: Rect, app: &AppState) {
 
 pub fn render(f: &mut Frame, area: Rect, app: &AppState) {
     if app.split_pod_selection_mode {
-        // 先渲染当前日志作为背景
-        let name = app
-            .pods
-            .get(app.selected_pod_index)
-            .map(|p| p.name.as_str())
-            .unwrap_or("?");
-        let title = if app.language_chinese {
-            format!(
-                "日志 - {}/{}{}",
-                app.current_namespace,
-                name,
-                log_search_status(app)
-            )
+        if app.split_log_mode && !app.log_panes.is_empty() {
+            // 多窗格模式：渲染所有窗格作为背景，再叠加 Pod 选择弹窗
+            let count = app.log_panes.len();
+            let constraints: Vec<Constraint> = (0..count)
+                .map(|_| Constraint::Percentage(100 / count as u16))
+                .collect();
+            let panes = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(constraints)
+                .split(area);
+
+            for (i, pane) in app.log_panes.iter().enumerate() {
+                let is_active = i == app.active_pane_index;
+                render_log_pane(
+                    f,
+                    panes[i],
+                    &pane.content,
+                    pane.scroll,
+                    &log_pane_title(app, &pane.pod_name, is_active),
+                    app,
+                );
+            }
+            render_pod_picker(f, area, app);
         } else {
-            format!(
-                "Logs - {}/{}{}",
-                app.current_namespace,
-                name,
-                log_search_status(app)
-            )
-        };
-        render_log_pane(f, area, &app.logs, app.logs_scroll, &title, app);
-        // 叠加 Pod 选择弹窗
-        render_pod_picker(f, area, app);
+            // 单窗格模式：渲染当前日志作为背景，再叠加 Pod 选择弹窗
+            let name = app
+                .pods
+                .get(app.selected_pod_index)
+                .map(|p| p.name.as_str())
+                .unwrap_or("?");
+            let title = if app.language_chinese {
+                format!(
+                    "日志 - {}/{}{}",
+                    app.current_namespace,
+                    name,
+                    log_search_status(app)
+                )
+            } else {
+                format!(
+                    "Logs - {}/{}{}",
+                    app.current_namespace,
+                    name,
+                    log_search_status(app)
+                )
+            };
+            render_log_pane(f, area, &app.logs, app.logs_scroll, &title, app);
+            render_pod_picker(f, area, app);
+        }
     } else if app.split_log_mode && !app.log_panes.is_empty() {
         let count = app.log_panes.len();
         let constraints: Vec<Constraint> = (0..count)
