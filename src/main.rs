@@ -375,6 +375,10 @@ async fn run_app(
                                         if let Ok(plogs) = client.get_pod_logs(&ns, &pn, 100).await
                                         {
                                             pane.content = plogs;
+                                            if app.logs_auto_scroll {
+                                                pane.scroll =
+                                                    pane.content.len().saturating_sub(1);
+                                            }
                                         }
                                     }
                                 }
@@ -758,6 +762,9 @@ async fn run_app(
                             let ns = app.current_namespace.clone();
                             if let Ok(plogs) = client.get_pod_logs(&ns, &pn, 100).await {
                                 pane.content = plogs;
+                                if app.logs_auto_scroll {
+                                    pane.scroll = pane.content.len().saturating_sub(1);
+                                }
                             }
                         }
                     }
@@ -791,6 +798,9 @@ async fn run_app(
                 let ns = app.current_namespace.clone();
                 if let Ok(plogs) = client.get_pod_logs(&ns, &pn, 100).await {
                     pane.content = plogs;
+                    if app.logs_auto_scroll {
+                        pane.scroll = pane.content.len().saturating_sub(1);
+                    }
                 }
             }
             app.refresh_logs();

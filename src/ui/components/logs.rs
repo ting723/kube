@@ -12,15 +12,28 @@ use ratatui::{
 fn log_pane_title(app: &AppState, pod_name: &str, is_active: bool) -> String {
     let marker = if is_active { "◉" } else { " " };
     let status = log_search_status(app);
+    let auto = if app.logs_auto_scroll {
+        if app.language_chinese {
+            " [自动滚动:开]"
+        } else {
+            " [AutoScroll:ON]"
+        }
+    } else {
+        if app.language_chinese {
+            " [自动滚动:关]"
+        } else {
+            " [AutoScroll:OFF]"
+        }
+    };
     if app.language_chinese {
         format!(
-            "{} 日志 - {}/{}{}",
-            marker, app.current_namespace, pod_name, status
+            "{} 日志 - {}/{}{}{}",
+            marker, app.current_namespace, pod_name, status, auto
         )
     } else {
         format!(
-            "{} Logs - {}/{}{}",
-            marker, app.current_namespace, pod_name, status
+            "{} Logs - {}/{}{}{}",
+            marker, app.current_namespace, pod_name, status, auto
         )
     }
 }

@@ -100,8 +100,22 @@ fn render_header(f: &mut Frame, area: Rect, app: &AppState) {
         AppMode::CommandHistory => 11,
     };
 
+    let header_title = if app.global_refresh_enabled {
+        if app.language_chinese {
+            "Kube TUI [刷新:开]"
+        } else {
+            "Kube TUI [Refresh:ON]"
+        }
+    } else {
+        if app.language_chinese {
+            "Kube TUI [刷新:关]"
+        } else {
+            "Kube TUI [Refresh:OFF]"
+        }
+    };
+
     let tabs = Tabs::new(titles)
-        .block(Block::default().borders(Borders::ALL).title("Kube TUI"))
+        .block(Block::default().borders(Borders::ALL).title(header_title))
         .style(Style::default().fg(Color::White))
         .highlight_style(
             Style::default()

@@ -928,6 +928,10 @@ impl AppState {
             AppMode::PodList => {
                 self.previous_mode = self.mode.clone();
                 self.reset_scroll();
+                self.logs_auto_scroll = true;
+                self.log_panes.clear();
+                self.split_log_mode = false;
+                self.active_pane_index = 0;
                 self.mode = AppMode::Logs;
             }
             _ => {}
